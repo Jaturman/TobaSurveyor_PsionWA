@@ -1,0 +1,274 @@
+PROC File:(Accion$,Tipo$)
+LOCAL i%,Fichero$(25,12),LISTA$(255),D%,obs$(25),IntPer
+local Filete$(8)
+
+	open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+
+rem Control del listado de ficheros aparecen en el dCHOICE
+	i%=1
+	LISTA$=""
+	first
+	while eof=0
+		if right$(D.File$,3)=left$(Tipo$,3)
+			Fichero$(i%)=D.File$
+			LISTA$=LISTA$+left$(D.File$,len(D.File$)-4)+","
+			i%=i%+1
+		endif
+		next
+	endwh
+	if Lista$<>""
+		LISTA$=LEFT$(LISTA$,LEN(LISTA$)-1)
+	endif
+
+
+
+
+if Accion$="CREAR" or Accion$="COPIAR" or Accion$="RENOMBRAR"
+	if Accion$="CREAR" or Accion$="COPIAR"
+		rem Control de Directorio Completo
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)=left$(Tipo$,3)
+				i%=i%+1
+			endif
+			next
+		endwh
+		if i%>=25
+			dinit Tipo$
+			dtext "","­ Directorio Completo !"
+			dialog
+			File$=""
+			File0$=""
+			close
+			return
+		endif
+	endif	
+	
+	File$=""
+	Obs$=""
+	i%=count
+    do
+
+		dinit Accion$+" "+Tipo$
+		if Accion$="CREAR"
+			dedit Filete$,"Nombre:",8
+		else
+			if lista$=""
+				dinit Tipo$
+				dtext "","­ Directorio Vacio !"
+				dialog
+				File$=""
+				File0$=""
+				close
+				return
+			endif
+			dCHOICE i%,"Origen",LISTA$
+			dedit Filete$,"Destino:",8
+		endif
+		if Tipo$="OBRA"
+			dedit Obs$,"Titulo:",30
+		else
+			dedit Obs$,"Obs.:",30
+		endif
+		if Accion$="CREAR" and Tipo$="PERFILES"
+			dfloat IntPer,"Intervalo",0,1000
+		endif  
+		D%=dialog
+
+		File$=Filete$
+		if D%=0
+			File$=""
+			close
+			return
+		endif
+
+		if Tipo$="OBRA"
+			if Obs$=""
+				giprint "Falta introducir Titulo"
+				File$=""
+				close
+				return
+			endif
+		endif
+
+
+		if Tipo$="PERFILES"
+			if Accion$="CREAR"
+				IntPer%=IntPer
+			else
+				use D
+				position i%	
+				IntPer=D.IntPer%
+			endif
+		endif  
+		File0$=""
+		if i%>0 and (Accion$="COPIAR" or Accion$="RENOMBRAR")
+			File0$=Fichero$(i%)
+		endif
+	until File0$<>File$+"."+left$(Tipo$,3)
+
+
+	if D%=0 or File$=""
+		File$=""
+		File0$=""
+		close
+		return
+	else
+		File$=upper$(File$)+"."+left$(Tipo$,3)
+		first
+		while eof=0
+			if File$=D.File$
+				dinit upper$(left$(File$,len(File$)-4))
+				dtext "","­ Fichero Existente !"
+				dialog
+				File$=""
+				File0$=""
+				close
+				return
+			endif
+			next
+		endwh
+		D.File$=File$
+		D.Obs$=lower$(Obs$)
+		D.Datime$=right$(datim$,8)+"     "+gen$(Day,5)+"/"+gen$(Month,5)+"/"+gen$(year,5)
+		D.IntPer%=IntPer
+		append
+		if Accion$="RENOMBRAR" 
+			first
+			position find(File0$)
+			erase
+		endif
+			
+			
+	endif
+endif
+
+
+if Accion$="ABRIR" or Accion$="SUPRIMIR"
+	File$=""
+	File0$=""
+	if lista$=""
+		dinit Tipo$
+		dtext "","­ Directorio Vacio !"
+		dialog
+		close
+		return
+	endif
+	while 1
+		i%=count
+		dinit Accion$+" "+TIPO$
+		dCHOICE i%,"Nombre",LISTA$
+		dbuttons "Info.",%i,"OK",13
+		D%=dialog
+		if D%=0
+			File$=""
+			close
+			return
+		endif
+		File$=Fichero$(i%)
+		if D%=13
+			if Accion$="SUPRIMIR"
+				first
+				position find(File$)
+				if Tipo$="PLANTA"
+					if left$(File$,len(File$)-4)=Fplt$
+						Giprint "­ Planta actualmente seleccionada !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="ALZADO"
+					if left$(File$,len(File$)-4)=mid$(Falz$,18,len(Falz$)-21)
+						Giprint "­ Alzado actualmente seleccionado !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="TRANSVERSAL"
+					if Left$(File$,len(File$)-4)=Ftrv$
+						Giprint "­ Transversal actualmente seleccionado !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="TAQUIMETRICO"
+					if Left$(File$,len(File$)-4)=Ftaq$
+						Giprint "­ Taquimetrico actualmente seleccionado !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="BASES"
+					if Left$(File$,len(File$)-4)=mid$(Fbse$,17,len(Fbse$)-20)
+						Giprint "­ Bases actualmente seleccionadas !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="PERFILES"
+					if left$(File$,len(File$)-4)=mid$(Fprf$,28,len(Fprf$)-31)
+						Giprint "­ Perfil actualmente seleccionado !"
+						File$=""
+						close
+						return
+					endif
+				endif
+				if Tipo$="OBRA"
+					if left$(File$,len(File$)-4)=Fobr$
+						Giprint "­ Obra actualmente seleccionada !"
+						File$=""
+						close
+						return
+					endif
+				endif
+
+				dinit "BORRAR "+Tipo$+":   "+left$(File$,len(File$)-4)
+				dbuttons "Cancelar",27,"Ok",13
+				D%=dialog
+				if D%=0
+					File$=""
+					close
+					return
+				else			
+					erase
+				endif
+			else
+				use D
+				position i%
+				IntPer%=D.IntPer%
+			endif
+			break
+		elseif D%=0 
+			File$=""
+			close
+			return
+		else
+			first
+			position find (File$)
+			dinit Tipo$+":     "+left$(File$,len(file$)-4)
+			if D.Obs$<>""
+				dtext "",D.Obs$
+			endif
+			dtext "Creacion:",D.Datime$
+			dialog
+		endif
+	endwh
+endif	
+close
+File$=left$(File$,len(File$)-4)
+If File0$<>""
+	File0$=left$(File0$,len(File0$)-4)
+endif
+
+	
+		
+			
+
+ENDP
+

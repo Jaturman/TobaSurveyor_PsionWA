@@ -1,0 +1,1253 @@
+PROC QInicio:
+local i%,M%
+
+
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Ftaq$=D.Ftaq$
+	if Ftaq$<>""
+		Fpts$="\TOBA\DBF\TERRENO\TAQUIM\"+D.Ftaq$+".PTS"
+		OPEN Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+		Fses$="\TOBA\DBF\TERRENO\TAQUIM\"+D.Ftaq$+".SES"
+		open Fses$,B,Inicio$,Obs$
+		Fetq$="\TOBA\DBF\TERRENO\TAQUIM\"+D.Ftaq$+".ETQ"
+		OPEN Fetq$,C,Etiquet$,Codigo$
+	endif	
+	use D
+	close
+
+	rem Comprueba si hay que abrir o crear un fichero taquimetrico.
+	if Ftaq$=""
+		giprint "­ No hay taquimetrico seleccionado !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="TAQ"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Qfile:(M%)
+		until File$<>"" 
+	endif
+
+    cls
+	
+	
+    PosCol%=1
+    PosFil%=1
+	while 1
+			QeVisPts:
+                                   
+/*		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=QDatos:(%a)
+				QeVisPts:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						QControl:(M%,8,2,1,count)
+						QeVisPts:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif	*/
+
+
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Qcontrol:(M%,8,2,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+
+				use C
+				first
+				if Ses%=0
+					mcard "Opciones","Preferencias",-%p,"Etiquetas",%e
+				else
+					mcard "Opciones","Preferencias",-%p,"Sesiones",%s,"Etiquetas",%e
+				endif
+				mcard "Puntos","A¤adir",%a,"Borrar",-%b,"Listar",%l
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+		
+		rem Opiones
+			If M%=%p :QOpref: :endif	rem Preferencias
+			IF M%=%s :QOSesion: :endif  rem Sesion
+			if M%=%e :QOEtiq: :endif 	rem Etiquetas
+
+
+		rem Datos
+			if M%=%a or M%=%b	
+				Qdatos:(M%)
+			endif	
+			if M%=%l	rem Listar 
+				QList:
+			endif	
+			
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				QAscII:(M%)
+			endif   	
+
+
+		rem Fichero
+			Qfile:(M%)
+    	endif
+
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			D.Ftaq$=Ftaq$
+			D.Fbse$=Fbse$
+			D.Auto%=Auto%
+			D.utm%=utm%
+			D.Ses%=Ses%
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			use A : close
+			Use B : close
+			use C : close
+			return
+		endif
+	endwh
+
+
+
+
+ENDP
+
+
+
+PROC Qfile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","TAQUIMETRICO")
+		if File$<>""
+			Ftaq$=File$
+			TRAP CLOSE
+			TRAP CLOSE 
+			trap close
+			Ftaq$=File$
+			Fpts$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".PTS"
+			CREATE Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+			Fses$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".SES"
+			create Fses$,B,Inicio$,Obs$
+			Fetq$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".ETQ"
+			CREATE Fetq$,C,Etiquet$,Codigo$
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","TAQUIMETRICO") 
+		if File$<>""
+			Ftaq$=File$
+			trap close
+			trap close
+			trap close
+			Fpts$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".PTS"
+			OPEN Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+
+			Fses$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".SES"
+			open Fses$,B,Inicio$,Obs$
+
+			Fetq$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".ETQ"
+			OPEN Fetq$,C,Etiquet$,Codigo$
+
+		endif
+	endif	
+
+	rem Copiar
+
+	if M%=%* 
+		File:("COPIAR","TAQUIMETRICO")
+		if file$<>""
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".PTS"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".PTS"
+			if a$=Fpts$
+				close
+				close
+				close
+			endif
+			copy a$,b$
+
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".SES"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".SES"
+			copy a$,b$
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".ETQ"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".ETQ"
+			copy a$,b$
+			TRAP OPEN Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+			trap open Fses$,B,Inicio$,Obs$
+			trap open Fses$,C,Etiquet$,Codigo$
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","TAQUIMETRICO")
+		If File$<>"" 
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".PTS"
+			delete a$
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".SES"
+			delete a$				
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".ETQ"
+			delete a$				
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","TAQUIMETRICO")
+		if File$<>""
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".PTS"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".PTS"
+			if a$=Fpts$
+				close
+				close
+				close
+			endif
+			rename a$,b$
+			if a$=Fpts$
+				Ftaq$=File$
+				Fpts$=b$
+			endif
+
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".SES"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".SES"
+			RENAME a$,b$
+			if a$=Fses$
+				Fses$=b$
+			endif
+
+			a$="\TOBA\DBF\TERRENO\TAQUIM\"+File0$+".ETQ"
+			b$="\TOBA\DBF\TERRENO\TAQUIM\"+File$+".ETQ"
+			RENAME a$,b$
+			if a$=Fetq$
+				Fetq$=b$
+			endif
+
+			TRAP OPEN Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+			trap open Fses$,B,Inicio$,Obs$
+			trap open Fses$,C,Etiquet$,Codigo$
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+ENDP
+
+PROC QOpref:
+local D%,i%,Lista$(255),Fichero$(25,255)
+
+	rem Control del listado de ficheros aparecen en el dCHOICE
+	open "\TOBA\SISTEMA\FILE.MON",D,File$,Obs$,Datime$,IntPer%
+	i%=1
+	LISTA$=""
+	first
+	while eof=0
+		if right$(D.File$,3)="BAS"
+			Fichero$(i%)=D.File$
+			LISTA$=LISTA$+left$(D.File$,len(D.File$)-4)+","
+			i%=i%+1
+		endif
+		next
+	endwh
+	if Lista$<>""
+		LISTA$=LEFT$(LISTA$,LEN(LISTA$)-1)
+	endif
+	i%=find(Fbse$)
+	use D
+	close
+
+	utm%=utm%+1
+	Ses%=Ses%+1
+	dinit "PREFERENCIAS"
+	dchoice Auto%,"Entrada datos","Automatica,Manual"
+	dchoice utm%,"Coordenadas UTM","No,Si"
+	dchoice Ses%,"Sesiones","No,Si"
+	if lista$<>""
+		dchoice i%,"Fichero Bases:",Lista$
+	endif
+	D%=Dialog
+	utm%=utm%-1
+	Ses%=Ses%-1
+	if D%=0
+		return
+	endif
+
+
+	if lista$<>""
+		Fbse$="\TOBA\DBF\BASES\"+left$(Fichero$(i%),len(Fichero$(i%))-4)+".BSE"
+	endif
+
+ENDP
+
+PROC QOSesion:
+local nEst%,nPts%,Sesion%,EstAnt$(10),D%,Obs$(20)
+
+	use B
+	if count=0
+		Sesion%=1
+		dinit "SESION N§1"
+		dtext "Inicio",right$(datim$,8)+"     "+gen$(Day,5)+"/"+gen$(Month,5)+"/"+gen$(year,5)
+	
+		dedit Obs$,"Obs:",20
+		D%=dialog
+		if D%=0
+			return
+		endif
+		B.Inicio$=right$(datim$,8)+"     "+gen$(Day,5)+"/"+gen$(Month,5)+"/"+gen$(year,5)
+		B.Obs$=lower$(Obs$)
+		append
+	endif
+
+	Sesion%=count
+	while 1
+		
+
+		use A
+		first
+		nPts%=0
+		nEst%=0
+		EstAnt$=""
+		while eof=0
+			if A.Sesion%=Sesion%
+				nPts%=nPts%+1
+				if A.Est$<>EstAnt$
+					nEst%=nEst%+1
+				endif
+				EstAnt$=A.Est$
+			endif
+			next
+		endwh		
+		
+		use B
+		last
+		dinit "SESION N§"+gen$(count,15)+":"+B.Obs$
+		dtext "Inicio",B.Inicio$,1
+		dtext "N§ Est:"+gen$(nEst%,15),"N§ Ptos:"+gen$(nPts%,15),1
+		dbuttons "Nueva",27,"Continuar",13,"Revision",9
+		D%=dialog 
+		
+                                    
+		if D%=13	rem Continuar Sesion
+			break
+		endif
+		if D%=0	rem Nueva Sesion
+			obs$=""
+			sesion%=count
+			use B
+			dinit "SESION N§"+gen$(sesion%+1,7)
+			dtext "Inicio",right$(datim$,8)+"     "+gen$(Day,5)+"/"+gen$(Month,5)+"/"+gen$(year,5)
+			dedit Obs$,"Obs:",20
+			D%=dialog
+			if D%=0
+				continue
+			endif
+			B.Inicio$=right$(datim$,8)+"     "+gen$(Day,5)+"/"+gen$(Month,5)+"/"+gen$(year,5)
+			B.Obs$=lower$(Obs$)
+			append
+		endif
+		if D%=9		rem Revision de sesiones
+			cls
+			use B
+			first
+			Sesion%=1
+			while 1
+				use A
+				first
+				nPts%=0
+				nEst%=0
+				EstAnt$=""
+				while eof=0
+					if A.Sesion%=Sesion%
+						nPts%=nPts%+1
+						if A.Est$<>EstAnt$
+							nEst%=nEst%+1
+						endif
+						EstAnt$=A.Est$
+					endif
+					next
+				endwh		
+				dinit "SESION N§"+gen$(sesion%,7)+":"+B.Obs$
+				dtext "Inicio",B.Inicio$
+				dtext "N§ Est:"+gen$(nEst%,7),"N§ Ptos:"+gen$(nPts%,7),1
+				dbuttons "Anterior",259,"Volver",27,"Siguiente",258
+				D%=Dialog
+				if D%=0
+					break
+				endif
+				use B
+				if D%=259    
+					Sesion%=Sesion%-1
+				endif
+				if D%=258
+					Sesion%=Sesion%+1
+				endif
+				if Sesion%<1
+					Sesion%=count
+				endif
+				if Sesion%>count
+					Sesion%=1
+				endif
+				position Sesion%
+			endwh
+			QeVisPts:
+		endif			
+	endwh
+	
+ENDP
+	
+PROC QControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+PROC QeVisPts:
+LOCAL i%,Fin%
+
+	use A
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint Ftaq$
+	gstyle 1
+
+	rem Control de cuanta informacion debe sacar
+		If Count-1>8
+			Fin%=8
+		else
+			Fin%=count
+		endif
+
+
+
+	IF PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 70,10 :GPRINT "TAQUIMETRICO"
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Pto             X                       Y                     Z           "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		if count<>0
+			position PosFil%
+			i%=0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT A.pto$
+				gAT 40,(i%*10)+18 :gPRINT A.X
+				gAT 110,(i%*10)+18 :gPRINT A.Y
+				gAT 185,(i%*10)+18 :gPRINT A.Z
+				next
+			ENDWH
+		endif
+	ENDIF
+
+
+	IF PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 70,10 :GPRINT "TAQUIMETRICO"
+		GSTYLE 4
+		gAT 1,18 :gPRINT " Pto       Etiqueta     Obs            Ses.     Est             "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		if count<>0
+			position PosFil%
+			i%=0                           
+			WHILE i%<Fin%
+				i%=i%+1
+				gAT 5,(i%*10)+18 :gPRINT A.Pto$
+				gAT 37,(i%*10)+18 :gPRINT lower$(A.Etiquet$)
+				gAT 99,(i%*10)+18 :gPRINT lower$(A.Obs$)
+				gat 162,(i%*10)+18 :gprint A.Sesion%
+				gAT 182,(i%*10)+18 :gPRINT lower$(A.Est$)
+				next
+			ENDWH
+		endif
+	ENDIF
+ENDP
+
+PROC Qdatos:(M%)
+local D%,est%,Pvis%,m,i,Lista$(255),i%
+local ListEtq$(255),Etiquet$(10),Etq%
+LOCAL Obs$(10),Est$(10),pVis$(10)
+local Xe,Ye,Ze,X,Y,Z
+local AZI,DES
+local nPts%,Pto$(10),f%
+
+	if M%=%a	rem A¥ADIR	    
+
+		if Fbse$=""
+			giprint "­ Fichero de bases no seleccionado !"
+			return
+		endif	
+
+		rem Creacion del listado de etiquetas aparece en el dCHOICE
+		use C
+		ListEtq$=""
+		if count<>0
+			first
+			while eof=0
+				ListEtq$=ListEtq$+C.Etiquet$+","
+				next
+			endwh
+			ListEtq$=left$(ListEtq$,len(ListEtq$)-1)
+		endif		
+		rem Creacion del listado de bases aparecen en el dCHOICE
+		open Fbse$,D,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+		i%=1
+		LISTA$=""
+		first
+		while eof=0
+			Lista$=Lista$+D.Obs$+","
+			next
+		endwh
+		if Lista$<>""
+			LISTA$=LEFT$(LISTA$,LEN(LISTA$)-1)
+		endif 
+		use D
+		close
+
+		if Ses%=1
+			rem Controla la sesion
+			QOsesion:
+		endif 
+		while 1
+
+			open Fbse$,D,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+            do
+				dinit "ESTACIONAR"
+				if len(Lista$)<255
+					dchoice est%,"Estacion",Lista$
+					dchoice Pvis%,"Pto. Visado",Lista$
+				else
+					dedit est$,"Estacion:",10
+					dEDIT pVis$,"Pto. Visado:",5
+				endif
+				dfloat m,"Altura Aparato",0.01,99
+				dfloat i,"Altura Prisma",0.01,99
+				if Auto%=2 rem entrada manual
+					dfloat LH,"L.H:",0,400
+				endif
+				D%=dialog
+				if D%=0
+					use D
+					close
+					return
+				endif
+			UNTIL est%<>Pvis% OR est$<>pVis$
+			if len(lista$)>255
+				first
+				est%=find (est$)
+				first
+				Pvis%=FIND(pVis$)
+			else
+				position est%
+				est$=D.Obs$
+				Position Pvis%
+				pVis$=D.Obs$
+			endif
+			position est%
+            Xe=D.X
+            Ye=D.Y
+            Ze=D.Z
+            position Pvis%
+            X=D.X
+            Y=D.Y
+            Z=D.Z
+
+			USE D
+			close
+
+			if Auto%=1	rem entrada automatica
+				QleerET:
+			endif
+				
+			rem Calculo de la desorientacion
+			IF Ye-Y=0
+				IF Xe<X 
+					AZI=100
+				ELSE 
+					AZI=300
+				ENDIF
+			ELSE 
+				AZI=ATAN((X-Xe)/(Y-Ye))
+			ENDIF
+
+			IF Y<Ye
+				AZI=AZI+PI
+			ENDIF
+			IF AZI<0 
+				AZI=AZI+2*PI
+			ENDIF
+			IF AZI>(2*PI)
+				AZI=AZI-2*PI
+			ENDIF
+			AZI=(AZI*200)/PI
+            DES=AZI-LH
+
+				
+            rem RUTINA DE TOMA DE PUNTOS
+			use A
+			nPts%=0 
+			pVis$="1"
+			do
+				nPts%=nPts%+1
+				dinit 
+				dedit pVis$,"Punto Visado:",5
+				if ListEtq$<>""
+					dchoice etq%,"Etiqueta",ListEtq$
+				endif
+				dedit obs$,"Observaciones:",10
+				dbuttons "Opciones",%+,"Info",290,"Leer Pto",13
+				D%=dialog
+				if D%=0
+					return
+				endif
+
+				
+
+
+				use C
+				position Etq%
+				Etiquet$=C.Etiquet$
+				
+				if D%=%+
+	                while 1
+						dinit "OPCIONES"
+						if ses%=1
+							dbuttons "Sesion",%*,"Prisma",%i
+						else
+							dbuttons "Prisma",%i
+						endif
+						D%=dialog
+						if D%=0
+							D%=1
+							break
+						endif
+						
+						if D%=%i
+							dinit "PRISMA"
+							dfloat i,"Altura:",0.01,99
+							dialog
+						endif
+
+						if D%=%*
+							rem Controla la sesion
+							QOsesion:
+						endif 
+					endwh
+					continue
+				endif
+				
+				if D%=290		rem Informacion
+					use B
+					last
+					dinit "INFORMACION"
+					if Ses%=1
+						dtext "Sesion:"+gen$(pos,15),B.Obs$
+						dtext "Inicio:",B.Inicio$
+					endif
+					dtext "ESTACION",Est$
+					dtext "N§ Ptos:",gen$(nPts%,15)
+					dialog
+					continue
+				endif
+
+				use A
+				first
+				while eof=0
+					f%=find(pVis$)
+					if f%<>0
+						beep 10,300
+						giprint "­ PTO Duplicado !"
+						break
+					endif
+				endwh
+				if f%<>0
+					continue
+				endif
+
+				if D%=13	rem Leer, Calcular y Grabar Punto
+					if Auto%=1
+						BUSY "PTO:  "+pVis$+" . . . ."
+						QleerET:
+						busy off
+					else
+						dINIT "PUNTO "+pVis$
+						dfloat LH,"L.H:",0,400
+						dfloat LV,"L.V:",0,400
+						dfloat DST,"DST:",0.5,9999 rem DST es la D reducida
+						D%=Dialog
+					endif
+					
+					rem CALCULO DE LAS COORDENADAS DEL PUNTO VISADO
+					AZI=LH+DES
+					if AZI>400
+						AZI=AZI-400
+					endif
+					if AZI<0
+						AZI=AZI+400
+					endif
+			        X=Xe+DST*SIN((AZI*PI)/200)
+			        Y=Ye+DST*COS((AZI*PI)/200)
+			        Z=Ze+DST/TAN((LV*pi)/200)+m-i
+			        X=VAL(FIX$(X,3,15))
+			        Y=VAL(FIX$(Y,3,15))
+			        Z=val(FIX$(Z,3,15))
+			        A.Pto$=pVis$
+			        A.X=X
+			        A.Y=Y
+			        A.Z=Z
+			        A.Etiquet$=Etiquet$
+			        A.Obs$=Obs$
+					use B
+					last
+			        A.Sesion%=pos
+			        A.Est$=Est$
+			        
+					use A
+					append
+					Qcontrol:(count,8,2,1,count)					
+				endif					
+				pVis$=gen$(val(pVis$)+1,15)
+			until D%=0
+
+		endwh					
+	endif					
+
+	if M%=%b	rem BORRAR
+		use A
+		if count=0
+			giprint "NO hay Datos"
+			return
+		else
+			while 1
+				dinit "BORRAR PUNTO"
+				dedit Pto$,"Pto:",10
+				D%=dialog
+				if D%=0
+					return
+				endif
+				use A
+				first
+				while eof=0
+					If A.Pto$=Pto$
+						erase
+						giprint "PTO "+Pto$+" Borrado"
+						return
+					endif
+					next
+				endwh
+				giprint "­ El PTO "+Pto$+" NO Existe !"
+			endwh
+		endif
+	endif
+	
+		
+
+
+
+
+
+
+
+
+ENDP
+
+PROC QOetiq:
+local D%,Etiquet$(10),Codigo$(3),ListEtq$(255),i%,Etiquet%
+
+	use C
+	while 1
+		dinit "ADMINISTRADOR DE ETIQUETAS"
+		dbuttons "Crear",13,"Borrar",8,"Ver",9
+		D%=dialog
+		if D%=0
+			return
+		endif
+		if D%=13	rem Crear Etiquetas	
+			etiquet$=""
+			codigo$=""
+			dinit "CREAR NUEVA ETIQUETA"
+			dedit etiquet$,"Nombre:",10
+			dedit codigo$,"Codigo:",3
+			D%=dialog
+			if D%=0
+				continue
+			endif
+			C.Etiquet$=etiquet$
+			C.Codigo$=codigo$
+			append
+		endif
+		if D%=8		rem Borrar Etiquetas
+			ListEtq$=""
+			use C
+			if count=0
+				giprint "NO hay Etiquetas"
+				continue
+			endif
+			first
+			while eof=0
+				ListEtq$=ListEtq$+C.Etiquet$+","
+				next
+			endwh
+			ListEtq$=left$(ListEtq$,len(ListEtq$)-1)
+
+			dinit "BORRAR ETIQUETA"
+			dchoice i%,"Nombre:",ListEtq$
+			D%=dialog
+			if D%=0
+				continue
+			endif
+			position i%
+			giprint "Etiqueta "+C.Etiquet$+" borrada"
+			erase
+		endif
+		if D%=9 	rem ver etiquetas
+			use C
+			if count=0
+				giprint "NO hay Etiquetas"
+				continue
+			endif
+			first
+			Etiquet%=1
+			while 1
+				use C
+				dinit "ETIQUETAS"
+				if C.Codigo$=""
+					dtext "","Etiqueta:"+C.Etiquet$
+				else
+					dtext "Etiqueta:"+C.Etiquet$,"Codigo:"+C.Codigo$,1
+				endif
+				dbuttons "Anterior",259,"Volver",27,"Siguiente",258
+				D%=Dialog
+				if D%=0
+					break
+				endif
+				if D%=259    
+					Etiquet%=Etiquet%-1
+				endif
+				if D%=258
+					Etiquet%=Etiquet%+1
+				endif
+				if Etiquet%<1
+					Etiquet%=count
+				endif
+				if Etiquet%>count
+					Etiquet%=1
+				endif
+				position Etiquet%
+			endwh
+		endif
+    endwh
+		
+ENDP
+
+PROC QleerET:
+LOCAL ret%,pbuf%,buf$(255),len%
+
+	trap lopen "TTY:A"
+	if err=-9
+		beep 10,300
+		giprint "­ Remote Link Activo !"
+		LH=0
+		LV=0
+		DST=0
+		pause 20
+		return
+	endif
+	Qrsset:(8,1,7,1,4,&0)
+	lprint chr$(67)+"067"+chr$(3)
+
+	pBuf%=addr(buf$)
+	len%=58
+	ret%=iow(-1,1,#uadd(pbuf%,1),len%)
+	pokeb pbuf%,len%
+
+	Lprint chr$(6)+"006"+chr$(3) 
+	lclose
+
+	if left$(buf$,4)=chr$(6)+"006"
+		if mid$(buf$,8,1)="<"	rem entrada de angulos
+			LV=val(mid$(buf$,9,7))/10000
+			LH=val(mid$(buf$,16,8))/10000
+			DST=0
+		else
+			LV=val(mid$(buf$,19,7))/10000
+			LH=val(mid$(buf$,27,7))/10000
+			DST=val(mid$(buf$,10,8))/1000
+		endif
+	else
+		beep 10,300
+		giprint "Imposible Leer"
+		LH=0
+		LV=0
+		DST=0
+		return
+	endif
+ENDP
+
+PROC Qlist:
+LOCAL D%,ret%,record$(255),address%,handle%
+local M%
+
+	dinit "LISTAR PUNTOS"
+	dbuttons "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=0
+		return
+	endif
+
+	if D%=%p	rem Pantalla
+	    PosCol%=1
+	    PosFil%=1
+		QeVisPts:
+		do
+			M%=get
+			if M%>=256 and M%<=263
+				QControl:(M%,8,2,1,count)
+				QeVisPts:
+			endif
+		until M%<256 or M%>263
+	endif		
+	
+	if D%=%f	rem Fichero
+
+		setpath "\TOBA\LISTADOS\TERRENO\"
+		DINIT "EXPORTAR LISTADO PTOS"
+		dFILE File$,"File",1
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+ 	
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+			D%=dialog
+			if D%=%r
+				delete File$
+				ret%=IOOPEN(handle%,File$,$0121)
+			endif
+			if D%=%a
+				ret%=IOOPEN(handle%,File$,$0123)
+			endif
+		else
+			ret%=IOOPEN(handle%,File$,$0121)
+		ENDIF
+
+		busy "Exportando list..."
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(FAlz$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="RED:  LISTADO DE BASES"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use B
+		if count>0 
+			record$="    Sesion N§      Inicio                        Obs."
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+			record$="    "+rept$("=",67)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+			USE B
+			first
+			while eof=0
+				record$=""				
+				record$="     "+gen$(Pos,15)+rept$(" ",12-len(gen$(pos,15)))
+				record$=record$+B.Inicio$+rept$(" ",30-len(B.Inicio$))
+				record$=record$+B.Obs$
+				ret%=IOWRITE(handle%,address%+1,len(record$))
+				next
+			endwh
+		endif						
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     N§        X            Y          Z        Etiqueta      Obs.       Sesion    Estacion"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",88)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		use A
+		first
+		WHILE  eof=0
+			record$=""				
+			record$="     "+A.Pto$+rept$(" ",6-len(A.Pto$))
+			record$=record$+gen$(A.X,15)+rept$(" ",12-len(gen$(A.X,15)))
+			record$=record$+gen$(A.Y,15)+rept$(" ",14-len(gen$(A.Y,15)))
+			record$=record$+gen$(A.Z,15)+rept$(" ",11-len(gen$(A.Z,15)))
+			record$=record$+A.Etiquet$+rept$(" ",13-len(A.Etiquet$))
+			record$=record$+A.Obs$+rept$(" ",13-len(A.Obs$))
+			record$=record$+gen$(A.Sesion%,15)+rept$(" ",10-len(gen$(A.Sesion%,15)))
+			record$=record$+A.Est$
+			next
+			ADDRESS%=ADDR(record$)
+			PEEKB(ADDRESS%)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+		ENDWH
+
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		ret%=IOCLOSE(handle%)
+		busy off
+		giprint "Listado de Bases Exportado"
+		return
+		endif
+	
+ENDP
+
+PROC QAscII:(M%)
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(4,15),D%
+
+
+	if M%=%0	rem IMPORTAR
+		setpath "\TOBA\COM\TERRENO\TAQUIM\"
+		DINIT "IMPORTAR PUNTOS"
+		DFILE File$,"File",0
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+
+		ret%=IOOPEN(handle%,File$,$0420)
+		address%=ADDR(record$)
+
+	
+		rem reinician los ficheros de base para poder acoger 
+		rem un nuevo fichero importado.
+		use A
+		close
+		delete Fpts$
+		create Fpts$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$           
+	
+	
+		busy "Importando Ptos..",1
+
+		rem Manejo de la cadena de carazteres Record$
+		Rem	que equivale a una linea del fichero AscII
+		WHILE 1
+			ret%=IOREAD(handle%,address%+1,255)
+			IF ret%=-36 
+				BREAK 
+			ENDIF
+			POKEB address%,ret%  
+			
+			i%=0 :Column%=0 
+			Do
+				mm$=""
+				WHILE  i%<=LEN(record$)
+					i%=i%+1 
+					m$=MID$(record$,i%,1)
+					IF m$="," 
+						BREAK 
+					ENDIF
+					if m$<>" "
+						mm$=mm$+m$
+					endif
+				ENDWH
+				Column%=Column%+1 
+				Field$(Column%)=(mm$)
+				mm$=""
+	
+				i%=i%-1
+	
+				WHILE MID$(record$,i%,1)=" "
+				 	i%=i%+1
+				ENDWH
+			UNTIL Column%=4
+	
+			A.Pto$=Field$(1)
+			A.X=VAL(Field$(2))
+			A.Y=VAL(Field$(3))
+			A.Z=VAL(Field$(4))
+			append
+		ENDWH
+
+		busy off
+		ret%=IOCLOSE(handle%)
+		return
+	endif
+	
+
+
+
+	if M%=%1	rem EXPORTAR
+
+		setpath "\TOBA\COM\TERRENO\TAQUIM\"
+		DINIT "EXPORTAR PUNTOS"
+		dFILE File$,"File",1
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"Reemplazar",13
+			D%=dialog
+			if D%=13
+				DELETE(File$)
+			else
+				return
+			endif
+		ENDIF
+		
+		busy "Exportando Puntos.."
+		lopen File$
+		use A
+		first
+		while eof=0
+beep 10,300
+print A.Pto$ :get
+print A.X    :get
+print A.Y         :get
+print A.Z              :get
+print A.Etiquet$            :get
+print A.Obs$                     :get
+print A.Sesion%                       :get
+print A.Est$                               :get
+ 
+			lprint A.Pto$;" , ";A.X;" , ";A.Y;" , ";A.Z;" , ";A.Etiquet$;" , ";A.Obs$;" , ";A.Sesion%;" , ";A.Est$
+			next
+		endwh
+		lclose 
+			busy off
+		giprint "Puntos Exportados",3
+		
+	endif	
+
+
+
+
+ENDP
+
+PROC Qrsset:(Baud%,Parity%,Data%,stop%,hand%,term&)
+local Frame%,srchar%(6),err%,dummy%
+
+	frame%=data%-5
+	if stop%=2
+		frame%=frame% or 16
+	endif
+	if Parity%
+		frame%=frame% or 32
+	endif
+	srchar%(1)=baud% or (baud%*256)
+	srchar%(2)=frame% or (parity%*256)
+	srchar%(3)=(hand% and 255) or $1100
+	srchar%(4)=$13
+	pokel addr(srchar%(5)),term&
+	err%=iow(-1,7,srchar%(1),dummy%)
+	if err%
+		raise err%
+	endif
+
+ENDP
+

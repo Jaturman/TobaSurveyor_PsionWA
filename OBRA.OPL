@@ -1,0 +1,3765 @@
+PROC OcalcXY:(PK)
+local PKant,FilIni%
+local Rini,Lini,TaoIni,XFini,YFini,PKini,AziIni,Xini,Yini	rem Clotoide
+local Rfin,Lfin,TaoFin,XFfin,YFfin					          rem Clotoide
+local iX,iY,Alfa,AZI                        rem Clotoide
+local Element$(8),X,Y,Azimut,Radio,A
+
+
+	use B
+	last
+	if PK>B.PK
+		giprint "PK Fuera de planta"
+		return
+	endif
+		
+	use B
+	first
+	if PK<B.PK
+		giprint "PK Fuera de planta"
+		return
+	endif
+	while eof=0
+		if (PK>PKant and PK<B.PK) or (PK=B.PK )
+			FilIni%=pos-1
+		endif
+		PKant=B.PK
+		next
+	endwh
+	position FilIni%
+	
+
+
+REM CALCULO 
+		if PK>PKini and PK<B.PK
+		else
+			rem Lectura de los valores del punto inicial del elemento.
+			PKini=B.PK
+			Rini=B.Radio
+			AziIni=B.Azimut
+			Xini=B.X
+			Yini=B.Y
+			use B
+			next
+		endif 
+			Lfin=PK-PKini 
+			if B.A<>0
+				Element$="CLOTOIDE"
+rem Calculo dentro de la clotoide
+
+				A=B.A
+				Radio=B.Radio
+
+	
+				rem calculo valores iniciales
+				If Rini<>0
+					Lini=B.A**2/abs(Rini)
+					TaoIni=200*(Lini/(2*abs(Rini)))/PI
+					XFini=Lini-Lini**5/(10*(2*ABS(Rini)*Lini)**2) + Lini**9/(216*(2*ABS(Rini)*Lini)**4) - Lini**13/(9360*(2*abs(Rini)*Lini)**6)
+					YFini=Lini**3/(3*(2*ABS(Rini)*Lini))-Lini**7/(42*(2*ABS(Rini)*Lini)**3)+Lini**11/(1320*(2*ABS(Rini)*Lini)**5)-Lini**15/(75600*(2*abs(Rini)*Lini)**7)
+				else
+					Lini=0
+					XFini=0
+					YFini=0
+					TaoIni=0
+				endif
+
+				rem Calculo de L 
+				rem Se abre a Circulo
+				if (abs(Rini)<abs(B.Radio)) and (Rini<>0) 
+					Lfin=B.PK-PK+(B.A**2/abs(B.Radio))
+				endif
+				rem Se abre a Recta
+				if B.Radio=0    
+					Lfin=B.PK-PK
+				endif
+				rem Se cierra desde circulo
+				if (abs(Rini)>abs(B.Radio)) and (B.Radio<>0)
+					Lfin=PK-PKini+(B.A**2/abs(Rini))				
+				endif
+				rem Se cierra desde recta
+				If Rini=0				
+					Lfin=PK-PKini 
+				endif
+			
+	        	rem calculo de valores finales
+				Rfin=B.A**2/Lfin
+				TaoFin=200*(Lfin/(2*abs(Rfin)))/PI
+				XFfin=Lfin-Lfin**5/(10*(2*Rfin*Lfin)**2)+Lfin**9/(216*(2*Rfin*Lfin)**4)-Lfin**13/(9360*(2*Rfin*Lfin)**6)
+				YFfin=Lfin**3/(3*(2*Rfin*Lfin))-Lfin**7/(42*(2*Rfin*Lfin)**3)+Lfin**11/(1320*(2*Rfin*Lfin)**5)-Lfin**15/(75600*(2*Rfin*Lfin)**7)
+				rem calculos parciales (Incrementos y Alfa)
+				iX=abs(XFfin-XFini)
+				iY=abs(YFfin-YFini)
+				Alfa=200/pi*atan(iX/iY)
+
+				rem calculo de Azimut y Distancia
+				DST=sqr(iX**2+iY**2)
+				if (Rini<0) or (B.Radio<0)
+					AZI=AziIni-abs(100-Alfa-TaoIni)
+				else
+					AZI=AziIni+abs(100-Alfa-TaoIni)
+				endif
+				rem calculo de coordenadas fin
+				if AZI<0
+					AZI=AZI+400
+				endif
+				if AZI>400
+					AZI=AZI-400
+				endif
+				X=Xini+DST*sin((AZI*pi)/200)
+				Y=Yini+DST*cos((AZI*pi)/200)
+				X=val(fix$(X,3,15))
+				Y=val(fix$(Y,3,15))
+				
+				rem calculo de azimut fin
+				if (Rini<0) or (B.Radio<0)
+					Azimut=AziIni-abs(TaoFin-TaoIni)
+				else
+					Azimut=AziIni+abs(TaoFin-TaoIni)
+				endif
+				Azimut=Val(Fix$(Azimut,4,15))
+			
+			else
+rem calculo dentro de la recta
+				if B.Radio=0
+					Element$="RECTA"
+					X=Xini+Lfin*sin((B.Azimut*pi)/200)
+					Y=Yini+Lfin*cos((B.Azimut*pi)/200)
+					X=val(fix$(X,3,15))
+					Y=val(fix$(Y,3,15))
+					A=B.A
+					Radio=B.Radio
+					Azimut=B.Azimut
+					
+					
+				else
+rem calculo dentro del circulo
+					Element$="CIRCULO"
+					Alfa=(200*Lfin)/(pi*abs(B.Radio))
+					if B.Radio<0 
+						AZI=AziIni+100-Alfa
+					else
+						AZI=AziIni-100+Alfa
+					endif
+					if AZI<0
+						AZI=AZI+400
+					endif
+					if AZI>400
+						AZI=AZI-400
+					endif
+					X=B.Xc+abs(B.Radio)*sin((AZI*pi)/200)
+					Y=B.Yc+abs(B.Radio)*cos((AZI*pi)/200)
+					X=val(fix$(X,3,15))
+					Y=val(fix$(Y,3,15))
+					A=B.A
+					Radio=B.Radio
+					if Radio<0 
+						Azimut=AZI-100
+					else
+						Azimut=AZI+100
+					endif
+					if Azimut<0
+						Azimut=Azimut+400
+					endif
+					if Azimut>400
+						Azimut=Azimut-400
+					endif
+					Azimut=val(fix$(Azimut,4,15))
+					
+				endif
+			endif
+
+	Xeje=X
+	Yeje=Y
+	AZIeje=Azimut
+
+
+ENDP
+
+PROC OcajeoF:(PK)rem
+local LongBI,PBI,LongBD,PBD			rem Seccion Tipo
+local EspesorF,TaludFI,TaludFD		rem Firmes
+local LongAI,LongAD,LongCI,LongCD   rem Plataforma
+local PKant,PKini
+local D%,i%,Fin%
+
+
+	trap open FcajF$,B,PK,firme%,XptfI,ZptfI,XbermaI,ZbermaI,XarcenI,ZarcenI,XcalzaI,ZcalzaI,Xeje,Zeje,Xarista,Zarista,XptfD,ZptfD,XbermaD,ZbermaD,XarcenD,ZarcenD,XcalzaD,ZcalzaD
+
+
+/*	dinit "BORRAR FICHERO CAJEO"
+	dbuttons "No",27,"Si",13
+	D%=dialog
+	if D%=13
+		use B
+		Fin%=count
+		i%=0
+		while i%<Fin%
+			i%=i%+1
+			first
+			erase
+		endwh
+		trap open FcajP$,C,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+		use C
+		Fin%=count
+		i%=0
+		while i%<Fin%
+			i%=i%+1
+			first
+			erase
+		endwh
+	endif */
+	
+		
+	
+
+	use B
+	first
+	while eof=0
+		if B.PK=PK
+			Posicio%=pos
+/*print B.XcalzaI,B.XarcenI,B.XbermaI,B.XptfI
+print B.ZcalzaI,B.ZarcenI,B.ZbermaI,B.ZptfI
+PRINT " "
+print B.XcalzaD,B.XarcenD,B.XbermaD,B.XptfD 
+print B.ZcalzaD,B.ZarcenD,B.ZbermaD,B.ZptfD :GET */
+			return Posicio%
+		endif
+		next
+	endwh 
+	
+		
+	/* OBTENCION DE DATOS
+	   ================== */
+/*rem !!!!!!
+Lopen "rem::\a.txt"
+PK=0 
+while 1
+PK=PK+20
+rem !!!!!!*/
+
+	rem Seccion Tipo
+	open Fsec$,A,PK,LongBI,PBI,LongBD,PBD
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	LongBI=A.LongBI
+	PBI=A.PBI
+	LongBD=A.LongBD
+	PBD=A.PBD
+	close	
+
+	rem Firmes
+	open Ffir$,A,PK,EspesorF,TaludFI,TaludFD
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	EspesorF=A.EspesorF
+	TaludFI=A.TaludFI
+	TaludFD=A.TaludFD
+	close	
+
+	rem Plataforma
+	open Fpla$,A,PK,LongAI,LongAD,LongCI,LongCD
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%-1
+	PKini=A.PK
+	LongAI=A.LongAI
+	LongAD=A.LongAD
+	LongCI=A.LongCI
+	LongCD=A.LongCD
+	position Posicio%
+	if LongAI<>A.LongAI
+		LongAI=(A.LongAI*(PK-PKini)+LongAI*(A.PK-PK))/(A.PK-PKini)
+	endif
+
+	if LongAD<>A.LongAD
+		LongAD=(A.LongAD*(PK-PKini)+LongAD*(A.PK-PK))/(A.PK-PKini)
+	endif
+
+	if LongCI<>A.LongCI
+		LongCI=(A.LongCI*(PK-PKini)+LongCI*(A.PK-PK))/(A.PK-PKini)
+	endif
+
+	if LongCD<>A.LongCD
+		LongCD=(A.LongCD*(PK-PKini)+LongCD*(A.PK-PK))/(A.PK-PKini)
+	endif
+
+    close	
+
+	rem Peraltes
+	open Fper$,A,PK,P$
+	OcalcPer:(PK)	
+	use A
+	close
+
+
+/* cls
+print "SECCION TIPO:";LongBI,PBI,LongBD,PBD		
+print "FIRMES:";EspesorF,TaludFI,TaludFD
+print "PLATAFORMA:";LongAI,LongAD,LongCI,LongCD :get */
+
+
+	/* CALCULO DEL CAJEO 
+	   ================= */
+
+	rem Eje
+	open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+	OcalcZ:(PK)
+	B.Xeje=0
+	B.Zeje=Zeje
+	use A
+	close	
+
+	rem Arista	
+	B.XArista=0
+	B.ZArista=B.Zeje-EspesorF
+
+
+	rem Calzadas
+	B.XcalzaI=-LongCI
+	B.ZcalzaI=(Piz/100)*LongCI+B.Zeje
+
+	B.XcalzaD=LongCD
+	B.ZcalzaD=(Pde/100)*LongCD+B.Zeje
+
+	rem Arcenes
+	B.XarcenI=B.XcalzaI-LongAI
+    B.ZarcenI=(Piz/100)*LongAI+B.ZcalzaI
+
+	B.XarcenD=B.XcalzaD+LongAD
+    B.ZarcenD=(Pde/100)*LongAD+B.ZcalzaD
+    
+	rem Bermas
+	B.XbermaI=B.XarcenI-LongBI
+	B.ZbermaI=(-PBI/100)*LongBI+B.ZarcenI
+
+	B.XbermaD=B.XarcenD+LongBD
+	B.ZbermaD=(-PBD/100)*LongBD+B.ZarcenD
+	
+	rem Pies de Taludes del Firme
+	B.XptfI=-(B.ZbermaI-B.Zarista+1/TaludFI*-B.XbermaI)/(Piz/100+1/TaludFI)
+	B.ZptfI=Piz/100*-B.XptfI+B.Zarista
+
+	B.XptfD=(B.ZbermaD-B.Zarista+1/TaludFD*B.XbermaD)/(Pde/100+1/TaludFD)
+	B.ZptfD=Pde/100*B.XptfD+B.Zarista
+
+
+	rem ROUND
+	B.Firme%=1
+	B.PK=PK
+
+	B.Zarista=val(fix$(B.Zarista,3,15))
+
+	B.XcalzaI=val(fix$(B.XcalzaI,3,15))
+	B.ZcalzaI=val(fix$(B.ZcalzaI,3,15))
+	B.XcalzaD=val(fix$(B.XcalzaD,3,15))
+	B.ZcalzaD=val(fix$(B.ZcalzaD,3,15))
+
+	B.XarcenI=val(fix$(B.XarcenI,3,15))
+	B.ZarcenI=val(fix$(B.ZarcenI,3,15))
+	B.XarcenD=val(fix$(B.XarcenD,3,15))
+	B.ZarcenD=val(fix$(B.ZarcenD,3,15))
+
+	B.XbermaI=val(fix$(B.XbermaI,3,15))
+	B.ZbermaI=val(fix$(B.ZbermaI,3,15))
+	B.XbermaD=val(fix$(B.XbermaD,3,15))
+	B.ZbermaD=val(fix$(B.ZbermaD,3,15))
+
+	B.XptfI=val(fix$(B.XptfI,3,15))
+	B.ZptfI=val(fix$(B.ZptfI,3,15))
+	B.XptfD=val(fix$(B.XptfD,3,15))
+	B.ZptfD=val(fix$(B.ZptfD,3,15))
+
+
+/*Cls :AT 1,1 :PRINT "PK:";PK
+print B.XcalzaI,B.XarcenI,B.XbermaI,B.XptfI
+print B.ZcalzaI,B.ZarcenI,B.ZbermaI,B.ZptfI
+PRINT " "
+print B.XcalzaD,B.XarcenD,B.XbermaD,B.XptfD
+print B.ZcalzaD,B.ZarcenD,B.ZbermaD,B.ZptfD :GET */
+
+
+	use B
+	append
+/*rem !!!!!
+cls :print PK
+lprint PK;",Izq.";",";B.Xeje;",";B.XcalzaI;",";B.XarcenI;",";B.XbermaI;",";B.XptfI
+lprint " , ,";B.Zeje;",";B.ZcalzaI;",";B.ZarcenI;",";B.ZbermaI;",";B.ZptfI
+lprint PK;",Der.";",";B.Xeje;",";B.XcalzaD;",";B.XarcenD;",";B.XbermaD;",";B.XptfD
+lprint " , ,";B.Zeje;",";B.ZcalzaD;",";B.ZarcenD;",";B.ZbermaD;",";B.ZptfD
+endwh
+lclose
+rem !!!!!!!*/
+
+	posicio%=pos
+	return Posicio%
+
+ENDP
+
+PROC OBRAmenu:
+LOCAL D%,M%,i%,f%
+local PKini,PKfin
+local Moneda%,PrecD,PrecT,PdesP,PterP,PdesE,PterE,totalP,totalE
+
+rem !!!!!!!!!!!!!!!!!!!!!!
+
+
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Fobr$=D.Fobr$
+	if Fobr$<>""
+		FFobr$="\TOBA\DBF\OBRA\"+Fobr$+".FOB"
+		open FFobr$,A,FOplt$,FOalz$,FOtrv$,FOprf$,Fbse$
+		Fplt$=A.FOplt$
+		Falz$=A.FOalz$
+		Ftrv$=A.FOtrv$
+		Fprf$=A.FOprf$
+		close 
+		FcajP$="\TOBA\DBF\OBRA\"+Fobr$+".CJP"
+		FcajF$="\TOBA\DBF\OBRA\"+Fobr$+".CJF"
+	endif	
+	use D
+	close
+
+	if FPlt$="" or FAlz$="" or FTrv$="" or FPrf$="" or Fbse$=""
+		dinits "­ ADVERTENCIA !"
+		dtext "","No hay ficheros de :"			
+		if FPlt$=""
+			dtext ""," - Planta"
+		endif		
+		if FAlz$=""
+			dtext ""," - Alzado"
+		endif		
+		if FTrv$=""
+			dtext ""," - Transversales"
+		endif		
+		if FPrf$=""
+			dtext ""," - Perfiles"
+		endif		
+		if FBse$=""
+			dtext ""," - Bases"
+		endif		
+		dialog
+		return
+	endif
+
+
+
+
+
+
+
+
+
+
+
+
+	rem Comprueba si hay que abrir o crear un fichero de perfil
+	if Fobr$=""                             
+		giprint "­ No hay obra seleccionada !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="OBR"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Ofile:(M%)
+		until File$<>"" 
+	else
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		first
+		while eof=0
+			f%=find(mid$(Fprf$,28,len(Fprf$)-31)+".PER")
+			if f%<>0
+				IntPer%=D.IntPer%
+				break
+			endif
+		endwh
+		first
+		while eof=0
+			f%=find(Fobr$+".OBR")
+			if f%<>0
+				TITULO$=upper$(D.Obs$)
+				break
+			endif
+		endwh
+		close
+	endif
+	Fplc$="\TOBA\DBF\PLANTA\CALC\"+Fplt$+".PLC"
+	Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+Ftrv$+".SEC"	
+	Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+Ftrv$+".FIR"	
+	Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+Ftrv$+".PLA"	
+	Fper$="\TOBA\DBF\TRANSV\PERALTES\"+Ftrv$+".PER"
+	Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+Ftrv$+".CUN"	
+	Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+Ftrv$+".TLD"	
+	Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+Ftrv$+".TLT"	
+	Fgeo$="\TOBA\DBF\TRANSV\GEO\"+Ftrv$+".GEO"	
+
+	M%=1
+	cls
+	while 1
+
+
+        if M%=1
+			defaultwin 1
+			ggrey 1
+			gat 0,0
+			gdrawobject 0,2,240,100
+	
+			gat 3,20
+			gfill 118,34,1
+	
+			gat 3,56
+			gfill 118,13,1
+	
+			gat 3,71
+			gfill 118,13,1
+	
+			ggrey 0
+			gat 3,20
+			gbox 118,34
+			gat 3,56
+			gbox 118,13
+			gat 3,71
+			gbox 118,13
+		
+			gat 125,76
+			gBUTTON "Tab",1,52,20,0
+			gat 182,76
+			gBUTTON "Menu",1,52,20,0
+			ggmode 2
+			gfont 11
+			gstyle 1
+			gat 8,15
+			gprint "OBRA"
+			gfont 10
+			gstyle 0
+			gat 55,15
+			gprint TITULO$
+	
+			ggmode 0
+			gfont 9
+	
+			gat 6,30
+			gstyle 1
+			gprint "PLANTA : "
+			gstyle 0
+			gprint Fplt$
+	
+			gat 6,40
+			gstyle 1
+			gprint "ALZADO : "
+			gstyle 0
+			if Falz$<>""
+				gprint mid$(Falz$,18,len(Falz$)-21) 
+			endif
+	
+			gat 6,50
+			gstyle 1
+			gprint "TRANSV : "
+			gstyle 0
+			gprint Ftrv$
+	
+	
+			gat 6,66
+			gstyle 1
+			gprint "PERFILES :"
+			gstyle 0
+			if Fprf$<>""
+				gprint mid$(Fprf$,28,len(Fprf$)-31) 
+			endif
+	
+			gat 6,81
+			gstyle 1
+			gprint "RED : "
+			gstyle 0
+			if Fbse$<>""
+				gprint mid$(Fbse$,17,len(Fbse$)-20)
+			endif
+	
+			gstyle 0
+/*			gat 126,27
+			gprint "PKini :"
+			gat 126,35
+			gprint "PKfin :"*/
+			gat 126,30
+			gprint "Intervalo :";IntPer%
+		
+			gfont 6
+			gstyle 0
+			gat 126,74
+			gprint "Grafico    Menu"
+
+			gat 0,85
+			ggrey 0
+			gfill 121,15,0 
+			GTMODE 0
+	
+    	endif
+
+		M%=Get 
+			
+		if M%=9	rem Tab
+			gat 125,76
+			gBUTTON "Tab",1,52,20,1
+			pause 3
+			gat 125,76
+			gBUTTON "Tab",1,52,20,2
+			OdibP:
+			M%=1
+			continue
+		endif		
+
+		IF M%=290 or (M% and $200)
+			if M%=290
+				gat 182,76
+				gBUTTON "Menu",1,52,20,1
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/,"Modificar",%=
+				mcard "Listado","Cotas del eje",%c,"Peraltes",%p
+				MCARD "Replanteo","Perfiles",%r,"Plataforma",%a,"Taludes",%t,"Lineas",%l
+				mcard "Medicion","Movimiento de tierras",%m,"Presupuestos",%x
+				pause 2
+				gat 182,76
+				gBUTTON "Menu",1,52,20,2
+				pause 2
+				gat 182,76
+				gBUTTON "Menu",1,52,20,1
+				pause 2
+				gat 182,76
+				gBUTTON "Menu",1,52,20,0
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+ 
+
+
+
+    		IF M%=%c	REM Listado de Cotas del Eje
+				OlistCot:
+				M%=1
+				continue
+			endif
+    		if M%=%p	Rem Listado de Peraltes
+				OlistPer:
+				M%=1
+			endif
+			
+			IF M%=%r or M%=%a or M%=%t or M%=%l or M%=%c	rem Replanteo
+				OMenRepl:(M%)
+			endif 
+			
+			if M%=%m
+				while 1
+					dinit "MOVIMIENTO DE TIERRAS"
+					dfloat PKini,"PK Inicial:",0,10000
+					dfloat PKfin,"PK Final:",0,10000
+					dbuttons "Cancelar",27,"Pantalla",%p,"Fichero",%f
+					D%=dialog
+					if D%=0
+						break
+					endif
+					OcalcMVT:(PKini,PKfin)
+					busy off
+					OListMvT:(D%)					
+					use D
+					close
+					delete "\TOBA\TEMP\MOVTIERR.$$$"
+				endwh
+				M%=1
+			endif
+
+			if M%=%x	rem Presupuestos
+				while 1
+					dinit "PRESUPUESTOS"
+					dfloat PKini,"PK Inicial:",0,10000
+					dfloat PKfin,"PK Final:",0,10000
+					dchoice moneda%,"Moneda:","Pesetas,Euros"
+					dfloat PrecD,"Precio Desmonte (m3):",1,99999
+					dfloat PrecT,"Precio Terraplen (m3):",1,9999
+					D%=dialog
+					if D%=0
+						break
+					endif
+					OcalcMVT:(PKini,PKfin)
+					use D
+					last
+					if Moneda%=1
+						PdesP=D.VolDT*PrecD
+						PterP=D.VolTT*PrecT
+						PdesE=(D.VolDT*PrecD)/166.386
+						PterE=(D.VolTT*PrecT)/166.386
+						PdesP=val(fix$(PdesP,0,15))
+						PterP=val(fix$(PterP,0,15))
+						PdesE=val(fix$(PdesE,3,15))
+						PterE=val(fix$(PterE,3,15))
+						totalP=PdesP+PterP
+						totalE=PdesE+PterE
+					else
+						PdesP=(D.VolDT*PrecD)*166.386
+						PterP=(D.VolTT*PrecT)*166.386
+						PdesE=D.VolDT*PrecD
+						PterE=D.VolTT*PrecT
+						PdesP=val(fix$(PdesP,0,15))
+						PterP=val(fix$(PterP,0,15))
+						PdesE=val(fix$(PdesE,3,15))
+						PterE=val(fix$(PterE,3,15))
+						totalP=PdesP+PterP
+						totalE=PdesE+PterE
+					endif
+					busy off
+					dinits "PRESUPUESTO  ("+gen$(PKini,15)+"-"+gen$(PKfin,15)+")"
+					dtext "Desmonte:",gen$(PDesP,15)+" pts  ",1
+					dtext "",gen$(PdesE,15)+" Euros",1
+					dtext "Terraplen:",gen$(PterP,15)+" pts  ",1
+					dtext "",gen$(PterE,15)+" Euros",$201
+					dtext "TOTAL:",gen$(TotalP,15)+" pts  ",$101
+					dtext "",gen$(TotalE,15)+" Euros",$101
+					dialog
+					use D
+					close
+					delete "\TOBA\TEMP\MOVTIERR.$$$"
+				endwh
+			Endif
+
+
+
+		endif		
+
+
+
+		rem Fichero
+		Ofile:(M%)
+
+		if M%=%+ or M%=%. 
+			M%=1
+		endif
+            
+
+
+
+
+
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			if Fplt$<>""
+				D.Fplt$=Fplt$
+			endif
+			if Falz$<>""
+				D.Falz$=Falz$
+			endif
+			if Ftrv$<>""
+				D.Ftrv$=Ftrv$
+			endif
+			if Fprf$<>""
+				D.Fprf$=Fprf$
+			endif
+			D.Fobr$=Fobr$
+			
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			Menu:
+		endif
+	endwh
+
+
+ENDP
+
+PROC Ofile:(M%)
+local A$(50),B$(50)
+local f%
+
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","OBRA")
+		if File$<>""
+			Fobr$=File$
+			FcajF$="\TOBA\DBF\OBRA\"+Fobr$+".CJF"
+			CREATE FcajF$,A,PK,firme%,XptfI,ZptfI,XbermaI,ZbermaI,XarcenI,ZarcenI,XcalzaI,ZcalzaI,Xeje,Zeje,Xarista,Zarista,XptfD,ZptfD,XbermaD,ZbermaD,XarcenD,ZarcenD,XcalzaD,ZcalzaD
+			close
+			FcajP$="\TOBA\DBF\OBRA\"+Fobr$+".CJP"
+			CREATE FcajP$,A,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+			close
+			FFobr$="\TOBA\DBF\OBRA\"+Fobr$+".FOB"
+			create FFobr$,A,FOplt$,FOalz$,FOtrv$,FOprf$,Fbse$
+			OfileSel:
+			A.FOplt$=Fplt$
+			A.FOalz$=Falz$
+			A.FOtrv$=Ftrv$
+			A.FOprf$=Fprf$
+			append
+			close
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","OBRA") 
+		if File$<>""
+			Fobr$=File$
+			FcajP$="\TOBA\DBF\OBRA\"+Fobr$+".CJP"
+			FcajF$="\TOBA\DBF\OBRA\"+Fobr$+".CJF"
+			FFobr$="\TOBA\DBF\OBRA\"+Fobr$+".FOB"
+			open FFobr$,A,FOplt$,FOalz$,FOtrv$,FOprf$,Fbse$
+			Fplt$=A.FOplt$
+			Falz$=A.FOalz$
+			Ftrv$=A.FOtrv$
+			Fprf$=A.FOprf$
+			close
+		endif
+	endif	
+
+	rem Copiar
+	if M%=%* 
+		File:("COPIAR","OBRA")
+		if file$<>""
+			a$="\TOBA\DBF\OBRA\"+File0$+".FOB"
+			b$="\TOBA\DBF\OBRA\"+File$+".FOB"
+			copy a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".CJP"
+			b$="\TOBA\DBF\OBRA\"+File$+".CJP"
+			copy a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".CJF"
+			b$="\TOBA\DBF\OBRA\"+File$+".CJF"
+			copy a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".SUP"
+			b$="\TOBA\DBF\OBRA\"+File$+".SUP"
+			copy a$,b$
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","OBRA")
+		If File$<>"" 
+			a$="\TOBA\DBF\OBRA\"+File$+".FOB"
+			delete a$
+			a$="\TOBA\DBF\OBRA\"+File$+".CJP"
+			delete a$
+			a$="\TOBA\DBF\OBRA\"+File$+".CJF"
+			delete a$
+			a$="\TOBA\DBF\OBRA\"+File$+".SUP"
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","PERFILES")
+		if File$<>""
+			a$="\TOBA\DBF\OBRA\"+File0$+".FOB"
+			b$="\TOBA\DBF\OBRA\"+File$+".FOB"
+			rename a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".CJP"
+			b$="\TOBA\DBF\OBRA\"+File$+".CJP"
+			rename a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".CJF"
+			b$="\TOBA\DBF\OBRA\"+File$+".CJF"
+			rename a$,b$
+			a$="\TOBA\DBF\OBRA\"+File0$+".SUP"
+			b$="\TOBA\DBF\OBRA\"+File$+".SUP"
+			rename a$,b$
+			if a$=Fobr$
+				Fobr$=b$
+			endif
+		endif
+	endif
+	
+	rem Modificar
+	If M%=%=
+		open FFobr$,A,FOplt$,FOalz$,FOtrv$,FOprf$,Fbse$
+		OfileSel:
+		first
+		A.FOplt$=Fplt$
+		A.FOalz$=Falz$
+		A.FOtrv$=Ftrv$
+		A.FOprf$=Fprf$
+		update
+		close
+		rem Calculo del intervalo
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		first
+		while eof=0
+			f%=find(mid$(Fprf$,28,len(Fprf$)-31)+".PER")
+			if f%<>0
+				IntPer%=D.IntPer%
+				break
+			endif
+		endwh
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+ 
+	open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+	first
+	while eof=0
+		f%=find(mid$(Fprf$,28,len(Fprf$)-31)+".PER")
+		if f%<>0
+			IntPer%=D.IntPer%
+		break
+		endif
+	endwh
+	first
+	while eof=0
+		f%=find(Fobr$+".OBR")
+		if f%<>0
+			TITULO$=upper$(D.Obs$)
+			break
+		endif
+		next
+	endwh
+	close
+               
+ENDP
+PROC OfileSel:
+local i%,j%,k%,l%,m%
+local D%
+local ListPLT$(255),ListALZ$(255),ListTRV$(255),ListPER$(255),ListBSE$(255)
+local FichPLT$(25,10),FichALZ$(25,10),FichTRV$(25,10),FichPER$(25,10),FichBSE$(25,10)
+	busy ". . . . ."
+	open "\TOBA\SISTEMA\FILE.MON",D,File$,Obs$,Datime$,IntPer%
+	i%=1
+	j%=1
+	k%=1
+	l%=1
+	m%=1
+	ListPLT$=""
+	ListALZ$=""
+	ListTRV$=""
+	ListPER$=""
+	ListBSE$=""
+	first				
+	while eof=0
+		if right$(D.File$,3)="PLA"
+			FichPLT$(i%)=left$(D.File$,len(D.File$)-4)
+			ListPLT$=ListPLT$+left$(D.File$,len(D.File$)-4)+","
+			i%=i%+1
+		endif					
+		if right$(D.File$,3)="ALZ"
+			FichALZ$(j%)=left$(D.File$,len(D.File$)-4)
+			ListALZ$=ListALZ$+left$(D.File$,len(D.File$)-4)+","
+			j%=j%+1
+		endif					
+		if right$(D.File$,3)="TRA"
+			FichTRV$(k%)=left$(D.File$,len(D.File$)-4)
+			ListTRV$=ListTRV$+left$(D.File$,len(D.File$)-4)+","
+			k%=k%+1
+		endif					
+		if right$(D.File$,3)="PER"
+			FichPER$(l%)=left$(D.File$,len(D.File$)-4)
+			ListPER$=ListPER$+left$(D.File$,len(D.File$)-4)+","
+			l%=l%+1
+		endif		 			
+		if right$(D.File$,3)="BAS"
+			FichBSE$(m%)=D.File$
+			ListBSE$=ListBSE$+left$(D.File$,len(D.File$)-4)+","
+			m%=m%+1
+		endif					
+		next
+	endwh
+	close
+	if ListPLT$<>""
+		ListPLT$=left$(ListPLT$,len(ListPLT$)-1)
+	endif
+	if ListALZ$<>""
+		ListALZ$=left$(ListALZ$,len(ListALZ$)-1)
+	endif
+	if ListTRV$<>""
+		ListTRV$=left$(ListTRV$,len(ListTRV$)-1)
+	endif
+	if ListPER$<>""
+		ListPER$=left$(ListPER$,len(ListPER$)-1)
+	endif
+	if ListBSE$<>""
+		ListBSE$=left$(ListBSE$,len(ListBSE$)-1)
+	endif
+
+	busy off
+
+
+	DINIT "OBRA: Seleccion de Ficheros"
+	dchoice i%,"Planta:",ListPLT$
+	dchoice j%,"Alzado:",ListALZ$
+	dchoice k%,"Transversales:",ListTRV$
+	dchoice l%,"Perfiles:",ListPER$
+	dchoice m%,"Bases:",ListBSE$
+	D%=dialog
+	if D%=0
+		return
+	endif
+	Fplt$=FichPLT$(i%)
+	Falz$="\TOBA\DBF\ALZADO\"+FichALZ$(j%)+".ALZ"
+	Ftrv$=FichTRV$(k%)
+	Fprf$="\TOBA\DBF\TERRENO\PERFILES\"+FichPER$(l%)+".PRF"
+	Fbse$="\TOBA\DBF\BASES\"+FichBSE$(m%)+".BSE"
+
+
+
+
+	Fplc$="\TOBA\DBF\PLANTA\CALC\"+Fplt$+".PLC"
+	Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+Ftrv$+".SEC"	
+	Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+Ftrv$+".FIR"	
+	Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+Ftrv$+".PLA"	
+	Fper$="\TOBA\DBF\TRANSV\PERALTES\"+Ftrv$+".PER"
+	Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+Ftrv$+".CUN"	
+	Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+Ftrv$+".TLD"	
+	Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+Ftrv$+".TLT"	
+	Fgeo$="\TOBA\DBF\TRANSV\GEO\"+Ftrv$+".GEO"	
+
+
+	rem Control de ficheros vacios !!!!!!!!!!!!!!!!!!
+	
+
+ENDP
+
+PROC OcalcZ:(PK)
+local PKteant,Filini%
+local PKteSig
+local SigC
+local i%,PvSig
+
+/*	use A
+	last
+	if PK>A.PK
+		giprint "PK Fuera de Alzado"
+		return
+	endif
+		
+	use A
+	first
+	if PK<A.PK
+		giprint "PK Fuera de Alzado"
+		return
+	endif*/
+
+	rem Calculo automatico de las tangentes si no estan calculadas anteriormente
+	USE A
+	first
+	If A.PKte=0
+		use A
+		position 1
+		i%=0
+		while i%<count
+			next 
+			PvSig=A.Pv
+			back
+			i%=i%+1
+			A.PTe=A.Pv
+			A.PTs=PvSig
+			A.PKte=A.PKv-A.L/2
+			A.PKts=A.PKv+A.L/2
+			A.CotaTe=A.CotaV-A.PTe/100*A.L/2
+			A.CotaTs=A.CotaV+A.PTs/100*A.L/2
+			A.CotaTe=val(Fix$(A.CotaTe,3,15))
+			A.CotaTs=val(Fix$(A.CotaTs,3,15))
+			update
+			position 1
+		endwh
+	endif
+
+	use A
+	first
+	while eof=0
+		if (PK>PKteAnt and PK<A.PKte) or (PK=A.PKte)
+			FilIni%=pos-1
+		endif
+		PKteAnt=A.PKte
+		next
+	endwh
+	position FilIni%
+		
+
+rem CALCULO 
+
+	next
+	PKteSig=A.PKte
+	back		
+
+	if PK>A.PKte and PK<PKteSig
+
+		if PK>A.PKts	or A.Kv=0 rem Rasante recta
+			Zeje=A.CotaV+A.Pts/100*(PK-A.PKv)
+		else	
+			rem Determinacion del signo para calculo de la cota 		
+			if (A.Pte>0 and A.Pts>0) or (A.Pte<0 and A.Pts<0)
+				if Abs(A.Pts)>abs(A.Pte)
+					if A.Pts>0
+						SigC=1
+					else
+						SigC=-1
+					endif
+				else 
+					if A.Pts>0
+						SigC=-1
+					else
+						SigC=1
+					endif
+				endif
+			else
+				if A.Pts>0
+					SigC=1
+				else
+					SigC=-1
+				endif
+			endif
+				
+			if PK<=A.PKv	rem Rasante curva de entrada
+				Zeje=A.CotaTe+(A.Pte/100*(PK-A.PKte))+(SigC*(PK-A.PKte)**2/(2*A.KV))
+			endif
+				
+			if PK>A.PKv and PK<=A.PKts	rem Rasante curva de salida
+				Zeje=A.CotaTs-(A.Pts/100*(A.PKts-PK))+SigC*((PK-A.PKts)**2/(2*A.KV))
+			endif
+		endif                         
+
+		Zeje=VAL(FIX$(Zeje,3,15))	
+	else
+		if PKteSig=0 and PK=A.PKv
+			Zeje=A.CotaV
+		endif
+		if PK=PKteSig
+			use A
+			next
+			Zeje=A.CotaTe
+		endif
+	endif
+ENDP
+
+PROC OlistCot:
+local PKini,PKfin,PK
+local M%,D%
+local Ret%,Handle%,Address%,record$(255)
+
+	dinit "LISTADO COTAS EJE"
+	dfloat PKini,"PK inicial:",0,100000
+	dfloat PKfin,"PK final:",0,100000
+	dbuttons "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+	busy "Calculando Cotas"
+	rem CANAL A - ALZADO
+	rem CANAL B - PERFILES
+	rem CANAL C - Fichero temporal de COTAS
+	open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+	OPEN Fprf$,B,PK,Dst,Cota
+
+	if exist ("\TOBA\TEMP\ListCota.$$$")
+		delete "\TOBA\TEMP\ListCota.$$$"
+	endif
+	CREATE "\TOBA\TEMP\ListCota.$$$",C,PK,Zras,Zterr,Zroja
+
+
+	Posicio%=1
+	PK=PKini
+	WHILE PK<=PKfin
+		C.PK=PK
+		OcalcZ:(PK)			
+        C.Zras=Zeje
+        use B
+        position Posicio%
+        while eof=0
+        	if B.PK=PK and B.Dst=0
+        		break
+        	endif
+        	next
+        	posicio%=pos
+        endwh
+		if pos>count
+        	beep 10,300
+			busy off
+			dinit "PERFIL PK:"+gen$(PK,15)
+			dtext "","El Perfil del Terreno NO existe"
+			dialog
+			close
+			close
+			close
+			return
+        endif
+        C.Zterr=B.Cota
+        C.Zroja=C.Zras-C.Zterr
+        C.Zroja=val(fix$(C.Zroja,3,15))
+        use C
+        append
+		PK=PK+IntPer%
+	endwh
+	busy off
+	
+	if D%=%p	rem Salida por PANTALLA
+		cls
+		gcls
+		PosFil%=1
+		PosCol%=1
+		OeVisLC:
+		while 1	
+			M%=get
+			if M%>=256 and M%<=263
+				OControl:(M%,8,1,1,count)
+				OeVisLc:
+			endif
+			if M%=27
+				break
+			endif
+		endwh
+    endif
+    
+	if D%=%f	rem Salida por FICHERO
+		
+		setpath "\TOBA\LISTADOS\OBRA\"
+		DINIT "EXPORTAR LISTADO COTAS"
+		dFILE File$,"File",1
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+ 	
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+			D%=dialog
+			if D%=%r
+				delete File$
+				ret%=IOOPEN(handle%,File$,$0121)
+			endif
+			if D%=%a
+				ret%=IOOPEN(handle%,File$,$0123)
+			endif
+		else
+			ret%=IOOPEN(handle%,File$,$0121)
+		ENDIF
+
+		busy "Exportando list..."
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(Fobr$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="OBRA:  LISTADO DE COTAS DEL EJE"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     PK    Rasante     Terreno      Cota Roja"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",40)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		use C
+		first
+		WHILE  eof=0
+			record$=""				
+			record$="     "+gen$(C.PK,15)+rept$(" ",6-len(gen$(C.PK,15)))
+			record$=record$+gen$(C.Zras,15)+rept$(" ",12-len(gen$(C.Zras,15)))
+			record$=record$+gen$(C.Zterr,15)+rept$(" ",14-len(gen$(C.Zterr,15)))
+			record$=record$+gen$(C.Zroja,15)
+			next
+			ADDRESS%=ADDR(record$)
+			PEEKB(ADDRESS%)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+		ENDWH
+
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		ret%=IOCLOSE(handle%)
+		busy off
+		giprint "Listado de Cotas Exportado"
+	endif
+
+	use A
+	close
+	use B
+	close
+	use C
+	close
+	delete "\TOBA\TEMP\ListCota.$$$"
+			
+ENDP
+
+
+
+
+PROC OListPer:
+local PKant,PKini,PKfin
+local PiniI,PiniD,PfinI,PfinD
+local Interv,D%,PK
+local PKi,PKf
+local M%
+local Ret%,Handle%,Address%,record$(255)
+
+
+
+	open  Fper$,A,PK,P$
+	if exist ("\TOBA\TEMP\ListPer.$$$")
+		delete "\TOBA\TEMP\ListPer.$$$"
+	endif
+	CREATE "\TOBA\TEMP\ListPer.$$$",B,PK,Piz,Pde
+	dinits "LISTADO DE PERALTES"
+	dfloat PKi,"PK inicial:",0,100000
+	dfloat PKf,"PK final:",0,100000
+	dfloat Interv,"Intervalo:",0.01,1000
+	dbuttons "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=0
+		return
+	endif
+	busy "Calculando Peraltes"
+	use A
+	first
+	if A.PK<>0
+		Posicio%=1
+	else
+		Posicio%=2
+	endif
+	PK=PKi
+	while 1
+		use A
+		position Posicio%
+		PKant=0
+		while eof=0
+			if (PK>PKant and PK<A.PK) or PK=A.PK
+				Posicio%=pos
+				break
+			endif
+			PKant=A.PK
+			next
+		endwh
+		if pos>count
+			giprint "No existe el PK "+gen$(PK,15)
+			use A
+			close
+			use B
+			close
+			busy off
+			return
+		endif
+		if Posicio%>1
+			position Posicio%-1
+			PKini=A.PK
+			if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+				PiniI=-val(Right$(A.P$,len(A.P$)-1))
+				PiniD=PiniI
+			else                                                    
+				PiniI=val(A.P$)
+				PiniD=-PiniI
+			endif
+
+			next
+			PKfin=A.PK
+			if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+				PfinI=-val(Right$(A.P$,len(A.P$)-1))
+				PfinD=PfinI
+			else
+				PfinI=val(A.P$)
+				PfinD=-PfinI
+			endif
+			back
+		else
+			first
+			PKini=0
+			PKfin=A.PK
+			if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+				PiniI=-val(Right$(A.P$,len(A.P$)-1))
+			else
+				PiniI=val(A.P$)
+			endif
+			PiniD=PiniI
+			PfinI=PiniI
+			PfinD=PiniI
+		endif	
+		Piz=((PfinI-PiniI)*(PK-PKini))/(PKfin-PKini)+PiniI
+		Pde=((PfinD-PiniD)*(PK-PKini))/(PKfin-PKini)+PiniD
+		Piz=val(fix$(Piz,1,15))
+		Pde=val(fix$(Pde,1,15))
+		B.PK=PK
+		B.Piz=Piz
+		B.Pde=Pde
+		use B                            
+		append
+		PK=PK+Interv
+		if PK>PKf
+			break
+		endif
+	endwh
+
+	busy off
+
+	if D%=%p	rem Salida por PANTALLA
+		cls
+		gcls
+		PosFil%=1
+		PosCol%=1
+		OeVisLP:
+		while 1	
+			M%=get
+			if M%>=256 and M%<=263
+				OControl:(M%,8,1,1,count)
+				OeVisLP:
+			endif
+			if M%=27
+				break
+			endif
+		endwh
+	endif
+
+
+	if D%=%f	rem Salida por FICHERO
+		
+		setpath "\TOBA\LISTADOS\OBRA\"
+		DINIT "EXPORTAR LISTADO PERALTES"
+		dFILE File$,"File",1
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+ 	
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+			D%=dialog
+			if D%=%r
+				delete File$
+				ret%=IOOPEN(handle%,File$,$0121)
+			endif
+			if D%=%a
+				ret%=IOOPEN(handle%,File$,$0123)
+			endif
+		else
+			ret%=IOOPEN(handle%,File$,$0121)
+		ENDIF
+
+		busy "Exportando list..."
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(Fobr$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="OBRA:  LISTADO DE PERALTES"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     PK    Peralte IZQ  Peralte DCH"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",32)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		use B
+		first
+		WHILE  eof=0
+			record$=""				
+			record$="     "+gen$(B.PK,15)+rept$(" ",10-len(gen$(B.PK,15)))
+			record$=record$+gen$(B.Piz,15)+rept$(" ",13-len(gen$(B.Piz,15)))
+			record$=record$+gen$(B.Pde,15)
+			next
+			ADDRESS%=ADDR(record$)
+			PEEKB(ADDRESS%)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+		ENDWH
+
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		ret%=IOCLOSE(handle%)
+		busy off
+		giprint "Listado Peraltes Exportado"
+	endif
+
+
+	use A
+	close
+	use B
+	close
+
+ENDP
+
+PROC OcalcPer:(PK)
+local PKant,PKini,PKfin
+local PiniI,PiniD,PfinI,PfinD
+	
+	use A
+	first
+	if A.PK<>0
+		Posicio%=1
+	else
+		Posicio%=2
+	endif
+	Position Posicio%
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+
+
+
+	if Posicio%>1
+		position Posicio%-1
+		PKini=A.PK
+		if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+			PiniI=-val(Right$(A.P$,len(A.P$)-1))
+			PiniD=PiniI
+		else                                                    
+			PiniI=val(A.P$)
+			PiniD=-PiniI
+		endif
+
+		next
+		PKfin=A.PK
+		if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+			PfinI=-val(Right$(A.P$,len(A.P$)-1))
+			PfinD=PfinI
+		else
+			PfinI=val(A.P$)
+			PfinD=-PfinI
+		endif
+		back
+	else
+		first
+		PKini=0
+		PKfin=A.PK
+		if left$(A.P$,1)="B" or left$(A.P$,1)="b"
+			PiniI=-val(Right$(A.P$,len(A.P$)-1))
+		else
+			PiniI=val(A.P$)
+		endif
+		PiniD=PiniI
+		PfinI=PiniI
+		PfinD=PiniI
+	endif	
+	Piz=((PfinI-PiniI)*(PK-PKini))/(PKfin-PKini)+PiniI
+	Pde=((PfinD-PiniD)*(PK-PKini))/(PKfin-PKini)+PiniD
+	Piz=val(fix$(Piz,1,15))
+	Pde=val(fix$(Pde,1,15))
+
+
+ENDP
+
+PROC OcajeoP:(PK)	rem CAJEO DE PERFILES
+local H1I,V1I,H2I,V2I,H3I,V3I,H4I,V4I
+local H1D,V1D,H2D,V2D,H3D,V3D,H4D,V4D
+LOCAL X1,Z1,X2,Z2
+local PT
+local PKant
+local TtalI,TtalD,DTCI,DtalI,DtalD,DTCD
+local Tvegetal                    
+local PosEje%,PosTalI%,PosTalD%,TipoTal$(1)
+local CotaAnt,DstAnt,CotaSig,DstSig rem Para la determinacion del tipo de talud
+
+trap open FcajP$,C,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+
+/*	use C
+	first
+	while eof=0
+		if C.PK=PK
+			Posicio%=pos
+ cls :AT 1,1 :PRINT "PK:";PK
+print C.XarranI,C.XexttI,C.XptfI
+print C.ZarranI,C.ZexttI,C.ZptfI
+PRINT " "
+print C.XarranD,C.XexttD,C.XptfD 
+print C.ZarranD,C.ZexttD,C.ZptfD :GET 
+			return Posicio%
+		endif
+		next
+	endwh                             */
+
+
+
+
+	/* OBTENCION DE DATOS
+	   ================== */
+
+	rem Taludes en Terraplen
+	open Ftlt$,A,PK,TtalI,TtalD
+	PKant=0
+	first                           
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	TtalI=A.TtalI
+	TtalD=A.TtalD
+	CLOSE
+
+	rem Taludes en Desmonte
+	open Ftld$,A,PK,DtalI,DTCI,DtalD,DTCD
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	DtalI=A.DtalI
+	DTCI=A.DTCI
+	DtalD=A.DtalD
+	DTCD=A.DTCD
+	CLOSE
+
+	rem Cunetas
+	open Fcun$,A,H1,V1,H2,V2,H3,V3,H4,V4
+	position DTCI
+	H1I=A.H1
+	V1I=A.V1		
+	H2I=A.H2
+	V2I=A.V2		
+	H3I=A.H3
+	V3I=A.V3		
+	H4I=A.H4
+	V4I=A.V4		
+	position DTCD
+	H1D=A.H1
+	V1D=A.V1		
+	H2D=A.H2
+	V2D=A.V2		
+	H3D=A.H3
+	V3D=A.V3		
+	H4D=A.H4
+	V4D=A.V4		
+	close
+
+	rem Geologia
+	open Fgeo$,A,PK,Tvegetal
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	Tvegetal=A.Tvegetal
+	close
+
+
+	rem Coordenadas Pie Talud Firme
+	open FcajF$,B,PK,firme%,XptfI,ZptfI,XbermaI,ZbermaI,XarcenI,ZarcenI,XcalzaI,ZcalzaI,Xeje,Zeje,Xarista,Zarista,XptfD,ZptfD,XbermaD,ZbermaD,XarcenD,ZarcenD,XcalzaD,ZcalzaD
+	first
+	while eof=0
+		if B.PK=PK
+			break
+		endif
+		next
+	endwh
+	if B.Firme%=0
+		OcajeoF:(PK)rem
+	endif
+	C.XptfI=B.XptfI	
+	C.ZptfI=B.ZptfI	
+	C.XptfD=B.XptfD	
+	C.ZptfD=B.ZptfD
+	C.Xarista=B.Xarista
+	C.Zarista=B.Zarista                    
+	use B
+	close	
+
+	OPEN Fprf$,B,PK,Dst,Cota
+
+	/* CALCULO DEL CAJEO
+	   ================= 
+	   - Lado Izquierdo:	* Determinacion del tipo de talud.
+	   						* Calculo de los puntos carazteristicos.
+
+	   - Lado Derecho:		* Determinacion del tipo de talud.
+	   						* Calculo de los puntos carazteristicos. */
+
+	rem Calculo de la posicion del eje en el fichero de Perfiles
+	use B
+	first
+	while 1
+		if B.PK=PK and B.DST=0
+			PosEje%=pos
+			break
+		endif
+		if Pos>Count
+			busy off
+			dinit "PERFIL PK:"+gen$(PK,15)
+			dtext "","El Perfil del Terreno NO existe"
+			dialog
+			use C
+			close
+			use B
+			close
+			OBRAmenu:
+
+		endif
+		next
+	endwh
+	use B
+	back
+	rem LADO IZQUIERDO
+
+	/* Determinacion del tipo de talud */
+	while 1
+		if B.DST<C.XptfI
+			CotaAnt=B.Cota-Tvegetal
+			DstAnt=B.Dst
+			next
+			PosTalI%=pos
+			if CotaAnt+(B.Cota-Tvegetal-CotaAnt)/(B.Dst-DstAnt)*(C.XptfI-DstAnt)>C.ZptfI
+				TipoTal$="D"	rem Desmonte
+			else
+				TipoTal$="T"    rem Terraplen
+			endif
+			break
+		endif
+		use B
+		back
+		if B.PK<>PK 
+			busy off
+			dinit "PK:"+gen$(PK,15)+"   ­ PERFIL INSUFICIENTE !"
+			dtext "","Superficie de Ocupacion de la obra"
+			dtext "","mayor que la Anchura del Perfil."
+			dialog
+			return
+		endif
+	endwh
+
+	/* Calculo de los puntos carazteristicos */
+	
+	if TipoTal$="T"	rem Terraplen
+
+		rem Extremo de Talud=Pie de Talud Firme
+		C.XexttI=C.XptfI			
+		C.ZexttI=C.ZptfI			
+
+		rem Arranque de talud
+		use B
+		position PosTalI%
+		while 1
+			if abs(B.DST)>abs((-TtalI*(C.ZexttI-B.Cota)+C.XexttI))
+				X1=B.DST
+				Z1=B.Cota
+				next
+				X2=B.DST
+				Z2=B.Cota
+				PT=(Z1-Z2)/(X1-X2)                                            
+				C.XarranI=( Z2-Tvegetal-C.ZexttI+1/TTalI*C.XexttI-PT*X2)/(1/TtalI-PT)
+				C.ZarranI=1/TtalI*(C.XarranI-C.XexttI)+C.ZexttI
+				C.XarranI=val(fix$(C.XarranI,3,15))
+				C.ZarranI=val(fix$(C.ZarranI,3,15))
+				break
+			endif
+			back
+		endwh
+	endif
+
+	
+	if TipoTal$="D"	rem Desmonte
+		rem Cunetas
+		C.Xcun1I=C.XptfI-H1I
+		C.Zcun1I=C.ZptfI+V1I
+
+		C.Xcun2I=C.Xcun1I-H2I
+		C.Zcun2I=C.Zcun1I+V2I
+
+		C.Xcun3I=C.Xcun2I-H3I
+		C.Zcun3I=C.Zcun2I+V3I
+
+		rem Extremo Talud
+		C.XexttI=C.Xcun3I-H4I			
+		C.ZexttI=C.Zcun3I+V4I	
+
+		rem Arranque de Talud		
+		use B
+		position PosTalI%
+		while 1
+			if abs(B.DST)>abs((DtalI*(C.ZexttI-B.Cota)+C.XexttI))
+				X1=B.DST
+				Z1=B.Cota
+				next
+				X2=B.DST
+				Z2=B.Cota
+				PT=(Z1-Z2)/(X1-X2)
+				C.XarranI=( Z2-Tvegetal-C.ZexttI-1/DTalI*C.XexttI-PT*X2)/(-1/DtalI-PT)
+				C.ZarranI=-1/DtalI*(C.XarranI-C.XexttI)+C.ZexttI
+				C.XarranI=val(fix$(C.XarranI,3,15))
+				C.ZarranI=val(fix$(C.ZarranI,3,15))
+				break
+			endif
+			back
+		endwh
+	endif
+
+
+
+	rem LADO DERECHO
+
+	/* Determinacion del tipo de talud */
+	use B
+	position PosEje%
+	next	
+
+	while 1
+
+		if B.DST>C.XptfD
+			CotaSig=B.Cota-Tvegetal
+			DstSig=B.Dst
+			back
+			PosTalD%=pos
+rem if CotaAnt+(B.Cota-Tvegetal-CotaAnt)/(B.Dst-DstAnt)*(C.XptfI-DstAnt)>C.ZptfI
+				if B.Cota-Tvegetal+(CotaSig-(B.Cota-Tvegetal))/(DstSig-B.Dst)*(C.XptfD-B.Dst)>C.ZptfD
+				TipoTal$="D"	rem Desmonte
+			else
+				TipoTal$="T"    rem Terraplen
+			endif
+			break
+		endif
+		use B
+		next
+		if B.PK<>PK 
+			busy off
+			dinit "PK:"+gen$(PK,15)+"   ­ PERFIL INSUFICIENTE !"
+			dtext "","Superficie de Ocupacion de la obra"
+			dtext "","mayor que la Anchura del Perfil."
+			dialog
+			return
+		endif
+	endwh
+
+
+	/* Calculo de los puntos carazteristicos */
+	
+	if TipoTal$="T"	rem Terraplen
+
+		rem Extremo de Talud=Pie de Talud Firme
+		C.XexttD=C.XptfD			
+		C.ZexttD=C.ZptfD			
+
+		rem Arranque de talud
+		use B
+		POSITION PosTalD%
+		while 1
+			IF B.DST>(TtalD*(C.ZexttD-B.Cota)+C.XexttD)
+				X1=B.DST
+				Z1=B.Cota
+				back
+				X2=B.DST
+				Z2=B.Cota
+				PT=(Z1-Z2)/(X1-X2)                                            
+				C.XarranD=( Z2-Tvegetal-C.ZexttD-1/TTalD*C.XexttD-PT*X2)/(-1/TtalD-PT)
+				C.ZarranD=-1/TtalD*(C.XarranD-C.XexttD)+C.ZexttD
+				C.XarranD=VAL(FIX$(C.XarranD,3,15))
+				C.ZarranD=VAL(FIX$(C.ZarranD,3,15))
+				break
+			endif
+			next
+		endwh
+	endif
+	
+	
+	if TipoTal$="D"	rem Desmonte
+		rem Cunetas
+		C.Xcun1D=C.XptfD+H1D
+		C.Zcun1D=C.ZptfD+V1D
+
+		C.Xcun2D=C.Xcun1D+H2D
+		C.Zcun2D=C.Zcun1D+V2D
+
+		C.Xcun3D=C.Xcun2D+H3D
+		C.Zcun3D=C.Zcun2D+V3D
+
+		rem Extremo Talud
+		C.XexttD=C.Xcun3D+H4D			
+		C.ZexttD=C.Zcun3D+V4D	
+
+		rem Arranque de Talud		
+		use B
+		POSITION PosTalD%
+		while 1
+			IF ABS(B.DST)>ABS(-DtalD*(C.ZexttD-B.Cota)+C.XexttD)
+				X1=B.DST
+				Z1=B.Cota
+				back
+				X2=B.DST
+				Z2=B.Cota
+				PT=(Z1-Z2)/(X1-X2)
+				C.XarranD=( Z2-Tvegetal-C.ZexttD+1/DTalD*C.XexttD-PT*X2)/(1/DtalD-PT)
+				C.ZarranD=1/DtalD*(C.XarranD-C.XexttD)+C.ZexttD
+				C.XarranD=VAL(FIX$(C.XarranD,3,15))
+				C.ZarranD=VAL(FIX$(C.ZarranD,3,15))
+				break
+			endif
+			next
+		endwh
+	endif
+	C.PK=PK
+	busy off
+/*cls :AT 1,1 :PRINT "PK:";PK
+print C.XarranI,C.XexttI,C.XptfI
+print C.ZarranI,C.ZexttI,C.ZptfI
+PRINT " "
+print C.XarranD,C.XexttD,C.XptfD 
+print C.ZarranD,C.ZexttD,C.ZptfD :GET */
+
+
+
+	C.Perfil%=1
+	use C
+	APPEND
+
+	use B
+	close
+
+
+
+
+
+
+ENDP
+
+PROC OMenRepl:(M%)
+local  D%,i%
+local PK
+local Lado%,Element%
+local ListBSE$(255)
+local Est%,Est$(50),Pvis%,Pvis$(50)
+local m,i
+local Xe,Ye,Ze,X,Y,Z
+local AZI,DES
+local ZZ,DD
+
+	IF Fbse$=""
+		giprint "­ No hay Fichero de Bases !"
+		return
+	endif
+
+
+
+	rem ESTACIONAR
+	rem Creacion del listado de bases aparecen en el dCHOICE
+	open Fbse$,D,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+	i%=1
+	ListBSE$=""
+	first
+	while eof=0
+		ListBSE$=ListBSE$+D.Obs$+","
+		next
+	endwh
+	if ListBSE$<>""
+		ListBSE$=LEFT$(ListBSE$,LEN(ListBSE$)-1)
+	endif 
+
+
+		REM ESTACIONAMIENTO
+		do
+			dinit "ESTACIONAR"
+			if len(ListBSE$)<255
+				dchoice est%,"Estacion",ListBSE$
+				dchoice Pvis%,"Pto. Visado",ListBSE$
+			else
+				dedit est$,"Estacion:",10
+				dEDIT pVis$,"Pto. Visado:",5
+			endif
+			dfloat m,"Altura Aparato",0.01,99
+			dfloat i,"Altura Prisma",0.01,99
+			if Auto%=2 rem entrada manual
+				dfloat LH,"L.H:",0,400
+			endif
+			D%=dialog
+			if D%=0
+				use D
+				close
+				return
+			endif
+		UNTIL est%<>Pvis% OR est$<>pVis$
+		if len(listBSE$)>255
+			first
+			est%=find (est$)
+			first
+			Pvis%=FIND(pVis$)
+		else
+			position est%
+			est$=D.Obs$
+			Position Pvis%
+			pVis$=D.Obs$
+		endif
+		position est%
+		Xe=D.X
+		Ye=D.Y
+        Ze=D.Z
+        position Pvis%
+        X=D.X
+        Y=D.Y
+        Z=D.Z
+        use D
+        close
+		if Auto%=1	rem entrada automatica
+			OleerET:
+		endif
+			
+		rem Calculo de la desorientacion
+		IF Ye-Y=0
+			IF Xe<X 
+				AZI=100
+			ELSE 
+				AZI=300
+			ENDIF
+		ELSE 
+			AZI=ATAN((X-Xe)/(Y-Ye))
+		ENDIF
+
+		IF Y<Ye
+			AZI=AZI+PI
+		ENDIF
+		IF AZI<0 
+			AZI=AZI+2*PI
+		ENDIF
+		IF AZI>(2*PI)
+			AZI=AZI-2*PI
+		ENDIF
+		AZI=(AZI*200)/PI
+        DES=AZI-LH
+
+	if M%=%r	rem Replanteo de Perfiles
+		Element%=6
+		while 1
+			Element%=Element%-5
+			dinit "REPLANTEAR PERFIL"
+			dfloat PK,"PK:",0,100000
+			dchoice Lado%,"Lado","Izquierdo,Derecho"
+			dchoice Element%,"Elemento:","Arranque Talud,Extremo Talud,Pie Talud Firme,Arista"
+			D%=dialog
+			if D%=0
+				return
+			endif
+			Element%=Element%+5
+			busy "Calculando PK "+gen$(PK,15)
+			OcajeoP:(PK)
+			Oreplant:(PK,Xe,Ye,Ze,DES,m,i,Lado%,Element%,DD,ZZ)
+		endwh
+	endif
+
+
+
+
+	if M%=%a	rem Replanteo de Firmes
+		while 1
+			dinit "REPLANTEAR PLATAFORMA"
+			dfloat PK,"PK:",0,100000
+			dchoice Lado%,"Lado:","Izquierdo,Derecho"
+			dchoice Element%,"Elemento:","Eje,Calzada,Arcen,Berma,Pie Talud Firme"
+			D%=dialog
+			if D%=0
+				break
+			endif
+			busy "Calculando PK "+gen$(PK,15)
+			Posicio%=OcajeoF:(PK)rem
+			Oreplant:(PK,Xe,Ye,Ze,DES,m,i,Lado%,Element%,DD,ZZ)
+		endwh
+	endif
+		
+	if M%=%t	rem Replanteo de Taludes
+		dinit "TALUDES"
+		dbuttons "Comprobar",9,"Replantear",13
+		D%=dialog
+		if D%=0
+			return
+		endif
+		if D%=9
+			while 1
+				dinit "COMPROBAR TALUDES"
+				dfloat PK,"PK:",0,100000
+				dchoice Lado%,"Lado","Izquierdo,Derecho"
+				D%=dialog
+				if D%=0
+					break
+				endif
+				OcajeoP:(PK)
+				OreplTal:(PK,Xe,Ye,Ze,DES,m,i,Lado%)
+			endwh
+		endif
+
+		if D%=13
+			Element%=6
+			while 1
+				if Element%>=11
+					Element%=Element%-2
+				endif
+				Element%=Element%-5
+				dinit "REPLANTEAR TALUDES"
+				dfloat PK,"PK:",0,100000
+				dchoice Lado%,"Lado","Izquierdo,Derecho"
+				dchoice Element%,"Elemento:","Arranque Talud,Extremo Talud,Pie Talud Firme,Extremo 1 Cuneta,Extremo 2 Cuneta,Extremo 3 Cuneta"
+				D%=dialog
+				if D%=0
+					return
+				endif
+				if Element%>=4
+					Element%=Element%+2
+				endif
+				Element%=Element%+5
+				OcajeoP:(PK)
+				Oreplant:(PK,Xe,Ye,Ze,DES,m,i,Lado%,Element%,DD,ZZ)
+			endwh
+		endif
+    endif
+    
+	if M%=%l	rem Replanteo De Linea
+		while 1
+			dinit "REPLANTEO DE LINEAS"
+			dfloat PK,"PK:",0,100000
+			dfloat DD,"Distancia al eje:",-9999,9999
+			dfloat ZZ,"Altura sobre eje:",-9999,9999
+			D%=dialog
+			if D%=0
+				return
+			endif
+			Element%=10
+			If DD<0
+				Lado%=1
+			else
+				Lado%=2
+			endif
+			OcajeoP:(PK)
+			Oreplant:(PK,Xe,Ye,Ze,DES,m,i,Lado%,Element%,DD,ZZ)
+		endwh
+	endif	
+
+
+
+ENDP
+
+PROC Oreplant:(PK,Xe,Ye,Ze,DES,m,i,Lado%,Element%,DD,ZZ)
+local Element$(13,8),Lado$(2,3)
+local D%
+local Cota
+local Xp,Yp,Zp
+local X,Y,Z,AZI
+local DSTteo,AZIteo,LHteo
+local DSTlei
+local Zerr,DSTerr
+local ii
+ii=i
+
+	Lado$(1)="IZQ"
+	Lado$(2)="DCH"
+	if Element%>=11
+		use C
+		if (C.ZarranI<C.ZptfI and Lado%=1) or (C.ZarranD<C.ZptfD and Lado%=2)
+			BUSY OFF
+			dinit "CUNETA IZQ  PK:"+gen$(PK,15)
+			dtext "","NO hay Cuneta"
+			dtext "","Talud en Terraplen"
+			DIALOG
+			close
+			RETURN
+		endif
+		IF C.XCun1I=C.XptfI and C.ZCun1I=C.ZptfI and Lado%=1
+			busy OFF
+			dinit "CUNETA IZQ  PK:"+gen$(PK,15)
+			dtext "","NO hay Cuneta"
+			DIALOG
+			close
+			RETURN
+		endif
+		IF C.XCun1D=C.XptfD and C.ZCun1D=C.ZptfD and Lado%=2
+			busy OFF
+			dinit "CUNETA DCH  PK:"+gen$(PK,15)
+			dtext "","NO hay Cuneta"
+			DIALOG
+			close
+			RETURN
+		endif
+		IF C.XCun2I=C.XCun1I and C.ZCun2I=C.Zcun1I and Lado%=1
+			busy OFF
+			dinit "CUNETA IZQ  PK:"+gen$(PK,15)
+			dtext "","La Cuneta Solo Tiene 1 Tramo"
+			DIALOG
+			close
+			RETURN
+		endif
+		IF C.XCun2D=C.XCun1D and C.ZCun2D=C.Zcun1D and Lado%=2
+			busy OFF
+			dinit "CUNETA DCH  PK:"+gen$(PK,15)
+			dtext "","La Cuneta Solo Tiene 1 Tramo"
+			DIALOG
+			close
+			RETURN
+		endif
+		if Element%-10>=2
+			IF C.XCun3I=C.Xcun2I and C.ZCun3I=C.Zcun2I and Lado%=1
+				busy OFF
+				dinit "CUNETA IZQ  PK:"+gen$(PK,15)
+				dtext "","La Cuneta Solo Tiene 2 Tramos"
+				DIALOG
+				RETURN
+			endif
+			IF C.XCun3D=C.Xcun2D and C.ZCun3D=C.Zcun2D and Lado%=2
+				busy OFF
+				dinit "CUNETA DCH  PK:"+gen$(PK,15)
+				dtext "","La Cuneta Solo Tiene 2 Tramos"
+				DIALOG
+				close
+				RETURN
+			endif
+			if Element%-10=3
+				IF C.XexttI=C.Xcun3I and C.ZexttI=C.Zcun3I and Lado%=1
+					busy OFF
+					dinit "CUNETA IZQ  PK:"+gen$(PK,15)
+					dtext "","La Cuneta Solo Tiene 3 Tramos"
+					DIALOG
+					close
+					RETURN
+				endif
+				IF C.XexttD=C.Xcun3D and C.ZexttD=C.Zcun3D and Lado%=2
+					busy OFF
+					dinit "CUNETA DCH  PK:"+gen$(PK,15)
+					dtext "","La Cuneta Solo Tiene 3 Tramos"
+					DIALOG
+					close
+					RETURN
+				endif
+			endif
+		endif
+	endif
+	
+	Element$(1)="EJE"
+	Element$(2)="CALZADA"
+	Element$(3)="ARCEN"
+	Element$(4)="BERMA"
+	Element$(5)="PIE T.F"
+	Element$(6)="ARRAN.T."
+	Element$(7)="EXTRE.T."
+	Element$(8)="PIE T.F."
+	Element$(9)="ARISTA"
+	Element$(10)="LINEA"
+	Element$(11)="EX1 CUN."
+	Element$(12)="EX2 CUN."
+	Element$(13)="EX3 CUN."
+	
+	if Lado%=1 rem LADO IZQUIERDO
+		if Element%=2	rem Calzada
+			DST=B.XcalzaI
+			Cota=B.ZcalzaI
+		endif
+		if Element%=3	REM Arcen
+			DST=B.XarcenI
+			Cota=B.ZarcenI
+		endif
+		if Element%=4	rem Berma
+			DST=B.XbermaI
+			Cota=B.ZbermaI
+		endif
+		if Element%=5	rem Pie Talud Firme ( Por Firme )
+			DST=B.XptfI
+			Cota=B.ZptfI
+		endif
+		if Element%=6	rem Arranque Talud
+			DST=C.XarranI
+			Cota=C.ZarranI
+		endif
+		if Element%=7	rem Extremo Talud
+			DST=C.XexttI
+			Cota=C.ZexttI
+		endif
+		if Element%=8	rem Pie Talud Firme ( Por Perfil )
+			DST=C.XptfI
+			Cota=C.ZptfI
+		endif
+		if Element%=11	rem Extremo Tramo 1 Cuneta
+			DST=C.Xcun1I
+			Cota=C.Zcun1I
+		endif
+		if Element%=12	rem Extremo Tramo 2 Cuneta
+			DST=C.Xcun2I
+			Cota=C.Zcun2I
+		endif
+		if Element%=13	rem Extremo Tramo 3 Cuneta
+			DST=C.Xcun3I
+			Cota=C.Zcun3I
+		endif
+	endif
+
+
+	if Lado%=2 rem LADO DERECHO
+		if Element%=2	rem Calzada
+			DST=B.XcalzaD
+			Cota=B.ZcalzaD
+		endif
+		if Element%=3	REM Arcen
+			DST=B.XarcenD
+			Cota=B.ZarcenD
+		endif
+		if Element%=4	rem Berma
+			DST=B.XbermaD
+			Cota=B.ZbermaD
+		endif
+		if Element%=5	rem Pie Talud Firme ( Por Firme )
+			DST=B.XptfD
+			Cota=B.ZptfD
+		endif
+		if Element%=6	rem Arranque Talud
+			DST=C.XarranD
+			Cota=C.ZarranD
+		endif
+		if Element%=7	rem Extremo Talud
+			DST=C.XexttD
+			Cota=C.ZexttD
+		endif
+		if Element%=8	rem Pie Talud Firme ( Por Perfil )
+			DST=C.XptfD
+			Cota=C.ZptfD
+		endif
+		if Element%=11	rem Extremo Tramo 1 Cuneta
+			DST=C.Xcun1D
+			Cota=C.Zcun1D
+		endif
+		if Element%=12	rem Extremo Tramo 2 Cuneta
+			DST=C.Xcun2D
+			Cota=C.Zcun2D
+		endif
+		if Element%=13	rem Extremo Tramo 3 Cuneta
+			DST=C.Xcun3D
+			Cota=C.Zcun3D
+		endif
+	endif
+	if Element%=1	rem Eje
+		DST=B.Xeje
+		Cota=B.Zeje
+	endif
+	if Element%=9	rem Arista
+		DST=C.Xarista
+		Cota=C.Zarista
+	endif
+	
+	close
+	
+
+	rem Obtencion de los datos del eje
+	open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+	OcalcXY:(PK) rem (Xeje,Zeje,AZIeje)
+	use B
+	close
+	IF Lado%=1 
+		AZIeje=AZIeje-100
+	else
+		AZIeje=AZIeje+100
+	endif
+	IF AZIeje<0 
+		AZIeje=AZIeje+400
+	ENDIF
+	IF AZIeje>400
+		AZIeje=AZIeje-400
+	ENDIF
+
+	if Element%=10
+		open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+		OcalcZ:(PK)	rem (Zeje)
+		use A
+		close
+		DST=DD
+		Cota=Zeje+ZZ
+	endif
+	
+	rem Calculo de las coordenadas XYZ del Punto a levantar
+	Xp=Xeje+abs(DST)*sin((AZIeje*PI)/200)
+	Yp=Yeje+abs(DST)*cos((AZIeje*PI)/200)
+	Zp=Cota
+	Xp=val(fix$(Xp,3,15))
+	Yp=val(fix$(Yp,3,15))
+	Zp=val(fix$(Zp,3,15))
+	
+	
+
+	rem Calculo de Lectura Horizontal Teorica (LH estacion-punto=AZIpos-DES)
+
+	DSTteo=sqr((Xp-Xe)**2+(Yp-Ye)**2)
+
+	IF Ye-Yp=0
+		IF Xe<Xp 
+			AZIteo=100
+		ELSE 
+			AZIteo=300
+		ENDIF
+	ELSE 
+		AZIteo=ATAN((Xp-Xe)/(Yp-Ye))
+	ENDIF
+				
+	IF Yp<Ye
+		AZIteo=AZIteo+PI
+	ENDIF
+	IF AZIteo<0 
+		AZIteo=AZIteo+2*PI
+	ENDIF
+	IF AZIteo>(2*PI)
+		AZIteo=AZIteo-2*PI
+	ENDIF
+
+	AZIteo=(AZIteo*200)/PI
+	LHteo=AZIteo-DES
+	if LHteo>400
+		LHteo=LHteo-400
+	endif
+	if LHteo<0
+		LHteo=LHteo+400
+	endif
+	AZIteo=val(Fix$(AZIteo,4,15))	
+	LHteo=val(Fix$(LHteo,4,15))	
+
+	dinit "REPLANTEO  "+"PK:"+gen$(PK,15)+". "+Element$(Element%)+" "+Lado$(Lado%)
+	if Element%=10
+		dtext "Dist/Alt. al Eje:",gen$(DD,15)+gen$(ZZ,15)
+	else
+		dtext "Distancia al Eje:",gen$(abs(DST),15),$200
+	endif
+	dtext "Azimut:"+gen$(AZIteo,15),"L.H:"+gen$(LHteo	,15),$300
+	dtext "","XY:  "+gen$(Xp,15)+" , "+gen$(Yp,15)
+	dtext "","   Z:  "+gen$(Zp,15)
+	busy off	
+	D%=dialog
+	if D%=0
+		return
+	endif
+
+	dinit "REPLANTEO  "+"PK:"+gen$(PK,15)+". "+Element$(Element%)+" "+Lado$(Lado%)
+	dtext "","L.H:"+gen$(LHteo	,15),$300
+	dbuttons "Cancelar",27,"Leer",13
+	D%=dialog
+	if D%=0
+		return
+	endif
+	if Auto%=1
+		OleerET:	rem (LH,LV,DST)
+	else
+		dINIT 
+		dfloat LH,"L.H:",0,400
+		dfloat LV,"L.V:",0,400
+		dfloat DST,"DST:",0.5,9999 rem DST es la D reducida
+		Dialog
+	endif
+
+
+	rem Rutina de Replanteo
+
+	while 1	
+		AZI=LH+DES
+		if AZI>400
+			AZI=AZI-400
+		endif
+		if AZI<0
+			AZI=AZI+400
+		endif
+		X=Xe+DST*sin((AZI*PI)/200)
+		Y=Ye+DST*cos((AZI*PI)/200)
+		Z=Ze+DST/tan((LV*pi)/200)+m-ii
+		DSTlei=sqr((X-Xe)**2+(Y-Ye)**2)>0.01
+		Zerr=Zp-Z
+		DSTerr=abs(DSTteo-DSTlei)
+		DSTerr=val(fix$(DSTerr,3,15))
+
+		dinit "REPLANTEO  "+"PK:"+gen$(PK,15)+". "+Element$(Element%)+" "+Lado$(Lado%)
+		if DSTteo-DSTlei>0.01
+			dtext "LH:"+gen$(LHteo,15),"ALEJAR "+gen$(DSTerr,15)+"m",$100
+		elseif DSTteo-DSTlei<-0.01               
+			dtext "LH:"+gen$(LHteo,15),"ACERCAR "+gen$(DSTerr,15)+"m",$100
+		else
+			dtext "LH:"+gen$(LHteo,15),"XY CORRECTA",$100
+		endif		
+		if Zerr<-0.01
+		dtext "LHo:"+gen$(LH,15),"BAJAR "+gen$(abs(Zerr),15)+" m",$200
+		elseif Zerr>0.01
+		dtext "LHo:"+gen$(LH,15),"SUBIR "+gen$(Zerr,15)+" m",$200
+		else
+			dtext "LH leida:"+gen$(LH,15),"Z CORRECTA",$200
+		endif
+		dbuttons "Prisma",%p,"O.K",27,"Leer",13
+		D%=dialog
+		if D%=0
+			return
+		endif
+		if D%=13
+			if Auto%=1
+				OleerET:	rem (LH,LV,DST)
+			else
+				dINIT 
+				dfloat LH,"L.H:",0,400
+				dfloat LV,"L.V:",0,400
+				dfloat DST,"DST:",0.5,9999 rem DST es la D reducida
+				Dialog
+			endif
+    	endif
+		if D%=%p	rem Prisma
+			dinit "PRISMA"
+			dfloat ii,"Altura Prisma:",0.01,99
+			DIALOG
+		endif
+	endwh
+	
+
+ENDP
+
+PROC OleerET:
+LOCAL ret%,pbuf%,buf$(255),len%
+
+	trap lopen "TTY:A"
+	if err=-9
+		beep 10,300
+		giprint "­ Remote Link Activo !"
+		LH=0
+		LV=0
+		DST=0
+		pause 20
+		return
+	endif
+	Orsset:(8,1,7,1,4,&0)
+	lprint chr$(67)+"067"+chr$(3)
+
+	pBuf%=addr(buf$)
+	len%=58
+	ret%=iow(-1,1,#uadd(pbuf%,1),len%)
+	pokeb pbuf%,len%
+
+	Lprint chr$(6)+"006"+chr$(3) 
+	lclose
+
+	if left$(buf$,4)=chr$(6)+"006"
+		if mid$(buf$,8,1)="<"	rem entrada de angulos
+			LV=val(mid$(buf$,9,7))/10000
+			LH=val(mid$(buf$,16,8))/10000
+			DST=0
+		else
+			LV=val(mid$(buf$,19,7))/10000
+			LH=val(mid$(buf$,27,7))/10000
+			DST=val(mid$(buf$,10,8))/1000
+		endif
+	else
+		beep 10,300
+		giprint "Imposible Leer"
+		LH=0
+		LV=0
+		DST=0
+		return
+	endif
+
+ENDP
+
+PROC OcalcMVT:(PKini,PKfin)
+local Terrap%,Arista%
+local SupD,SupT,Sup
+local X1,Z1,X2,Z2,PT
+local X,Z,Tvegetal
+local i%,Xn,Zn,Xn1,Zn1
+local PKant
+local PK
+local VolDT,VolTT,SupDsig,SupTsig
+	
+	if exist("\TOBA\TEMP\MOVTIERR.$$$")
+		delete "\TOBA\TEMP\MOVTIERR.$$$"
+	endif
+	create "\TOBA\TEMP\MOVTIERR.$$$",D,PK,SupD,SupT,VolD,VolT,VolDT,VolTT
+	close
+
+	PK=PKini
+	while PK<=PKfin
+
+		
+
+
+		busy "Calculando PK "+gen$(PK,15)
+
+	REM RECOPILACION DE DATOS
+		rem Peraltes
+		open Fper$,A,PK,P$
+		OcalcPer:(PK)	
+		use A
+		close
+
+		rem Geologia
+		open Fgeo$,A,PK,Tvegetal
+		PKant=0
+		first
+		while eof=0
+			if (PK>PKant and PK<A.PK) or (PK=A.PK)
+				Posicio%=pos-1
+				break
+			endif
+			PKant=A.PK
+			next
+		endwh
+		position Posicio%
+		Tvegetal=A.Tvegetal
+		close
+	
+		open FcajP$,A,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+		FIRST
+		while eof=0
+			if A.PK=PK
+				break
+			endif
+			next
+		endwh
+	     
+		if pos>count
+			close
+			OcajeoP:(PK)
+			use C
+			close
+			open FcajP$,A,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+		endif
+			
+	
+		OPEN Fprf$,B,PK,Dst,Cota
+		if exist ("\TOBA\TEMP\CalcSup.$$$")
+			delete "\TOBA\TEMP\CalcSup.$$$"
+		endif
+		CREATE "\TOBA\TEMP\CalcSup.$$$",C,X,Z
+		use A
+		first
+		while eof=0
+			if A.PK=PK
+				break
+			endif
+			next
+		endwh
+		C.X=A.XptfI
+		C.Z=A.ZptfI
+		use C
+		append
+		If A.ZarranI<A.ZptfI	rem Terraplen
+			Terrap%=1
+			C.X=A.XarranI
+			C.Z=A.ZarranI
+			append
+		else
+			Terrap%=0
+			C.X=A.Xcun1I
+			C.Z=A.Zcun1I
+			append
+			C.X=A.Xcun2I
+			C.Z=A.Zcun2I
+			append
+			C.X=A.Xcun3I
+			C.Z=A.Zcun3I
+			append
+			C.X=A.XexttI
+			C.Z=A.ZexttI
+			append
+			C.X=A.XarranI
+			C.Z=A.ZarranI
+			append
+		endif
+		use B
+		first
+		while eof=0
+			if B.PK=PK and B.DST>A.XarranI
+				break
+			endif
+			next
+		endwh
+		use B
+		Arista%=1
+		SupD=0
+		SupT=0
+	
+
+
+		while 1
+	
+			If B.DST<0
+				rem Determinacion si hay interseccion del tramo del terreno con
+				rem la subrasante
+	
+				X1=B.DST
+				Z1=B.Cota
+				use B
+				next
+				X2=B.DST
+				Z2=B.Cota
+				back
+				PT=(Z2-Z1)/(X2-X1) 
+				
+				X=( Z1-Tvegetal-A.ZptfI-Piz/100*A.XptfI-PT*X1)/(-Piz/100-PT)
+				Z=-Piz/100*(X-A.XptfI)+A.ZptfI
+				if X>X1 and X<X2
+					C.X=X1
+					C.Z=Z1-Tvegetal
+					use C
+					append
+					C.X=X
+					C.Z=Z
+					append
+					rem Calculo La superficie Del fichero de calculo
+					i%=1
+					Sup=0
+					use C
+					first
+					while i%<=count
+					    Xn=C.X
+					    Zn=C.Z
+						if i%=count
+							first
+							Xn1=C.X
+							Zn1=C.Z
+						else
+							Next
+							Xn1=C.X
+							Zn1=C.Z
+						endif
+						Sup=Sup+(Xn1-Xn)*(Zn1+Zn)
+						i%=i%+1
+					endwh
+					Sup=ABS(Sup/2)
+					rem A¤ado la sup. Segun sea D/T y conmuto el proximo tipo de sup
+					if Terrap%=1
+						SupT=Sup
+						Terrap%=0
+					else
+						SupD=Sup
+						Terrap%=1
+					endif
+					rem Reinicializo el Fichero de calculo de superficie
+					use C
+					close
+					delete "\TOBA\TEMP\CalcSup.$$$"
+					CREATE "\TOBA\TEMP\CalcSup.$$$",C,X,Z
+					rem A¤ado al fichero el ultimo punto (=pto interseccion)
+					C.X=X
+					C.Z=Z
+					use C
+					append
+				else
+					C.X=B.Dst
+					C.Z=B.Cota-Tvegetal
+					use C
+					append
+				endif
+			endif
+		
+			If B.DST>=0
+	
+				if B.Dst>A.XarranD
+					use C
+					If A.ZarranD<A.ZptfD	rem Terraplen
+						C.X=A.XarranD
+						C.Z=A.Zarrand
+						append
+					else
+						C.X=A.XarranD
+						C.Z=A.ZarranD
+						append
+						C.X=A.XexttD
+						C.Z=A.ZexttD
+						append
+						C.X=A.Xcun3D
+						C.Z=A.Zcun3D
+						append
+						C.X=A.Xcun2D
+						C.Z=A.Zcun2D
+						append
+						C.X=A.Xcun1D
+						C.Z=A.Zcun1D
+						append
+					endif
+					C.X=A.XptfD
+					C.Z=A.ZptfD
+					use C
+					append
+					rem Si la variable Arista%=1 a¤ado (X,Z)arista al fichero calc
+					if Arista%=1
+						C.X=A.Xarista				
+						C.Z=A.Zarista
+						use C
+						append
+						Arista%=0
+					endif
+					rem Calculo La superficie Del fichero de calculo
+					i%=1
+					Sup=0
+					use C
+					first
+					while i%<=count
+					    Xn=C.X
+					    Zn=C.Z
+						if i%=count
+							first
+							Xn1=C.X
+							Zn1=C.Z
+						else
+							Next
+							Xn1=C.X
+							Zn1=C.Z
+						endif
+						Sup=Sup+(Xn1-Xn)*(Zn1+Zn)
+						i%=i%+1
+					endwh
+					Sup=ABS(Sup/2)
+					rem A¤ado la sup. Segun sea D/T y conmuto el proximo tipo de sup
+					if Terrap%=1
+						SupT=Sup
+					else
+						SupD=Sup
+					endif
+					break
+	
+	            else
+	
+					rem Determinacion si hay interseccion del tramo del terreno con
+					rem la subrasante
+					X1=B.DST
+					Z1=B.Cota
+					use B
+					next
+					X2=B.DST
+					Z2=B.Cota
+					back
+					PT=(Z2-Z1)/(X2-X1) 
+					X=( Z1-Tvegetal-A.Zarista+Pde/100*A.Xarista-PT*X1)/(Pde/100-PT)
+					Z=Pde/100*(X-A.Xarista)+A.Zarista
+					if X>X1 and X<X2 and X<A.XptfD
+						C.X=X1
+						C.Z=Z1-Tvegetal
+						use C
+						append
+						C.X=X
+						C.Z=Z
+						append
+						rem Si la variable Arista%=1 a¤ado (X,Z)arista al fichero calc
+						if Arista%=1
+							C.X=A.Xarista				
+							C.Z=A.Zarista
+							use C
+							append
+							Arista%=0
+						endif
+						rem Calculo La superficie Del fichero de calculo
+						i%=1
+						Sup=0
+						use C
+						first
+						while i%<=count 
+						    Xn=C.X
+						    Zn=C.Z
+							if i%=count
+								first
+								Xn1=C.X
+								Zn1=C.Z
+							else
+								Next
+								Xn1=C.X
+								Zn1=C.Z
+							endif
+							Sup=Sup+(Xn1-Xn)*(Zn1+Zn)
+							i%=i%+1
+						endwh
+						Sup=ABS(Sup/2)
+					
+						rem A¤ado la sup. Segun sea D/T y conmuto el proximo tipo de sup
+						if Terrap%=1
+							SupT=Sup
+							Terrap%=0
+						else
+							SupD=Sup
+							Terrap%=1
+						endif
+						rem Reinicializo el Fichero de calculo de superficie 
+						use C
+						close
+						delete "\TOBA\TEMP\CalcSup.$$$"
+						CREATE "\TOBA\TEMP\CalcSup.$$$",C,X,Z
+						rem A¤ado al fichero el ultimo punto (=pto interseccion)
+						C.X=X
+						C.Z=Z
+						use C
+						append
+					else
+						C.X=B.Dst
+						C.Z=B.Cota-Tvegetal
+						use C
+						append
+					endif
+				endif
+			endif
+			use B
+			next
+		endwh
+		SupT=val(fix$(SupT,2,15))
+		SupD=val(fix$(SupD,2,15))
+		OPEN "\TOBA\TEMP\MOVTIERR.$$$",D,PK,SupD,SupT,VolD,VolT,VolDT,VolTT
+			D.PK=PK
+			D.SupT=SupT
+			D.SupD=SupD
+			Append
+		close
+
+/*cls :print "SUP Terraplen=";SupT
+		print "SUP Desmonte=";SupD :get*/
+
+		use A
+		close
+		use B
+		close
+		Use C
+		close
+
+		PK=PK+IntPer%
+	endwh
+	rem CALCULO DE VOLUMENES
+
+	OPEN "\TOBA\TEMP\MOVTIERR.$$$",D,PK,SupD,SupT,VolD,VolT,VolDT,VolTT
+	VolDT=0
+	VolTT=0
+	i%=0
+	while i%<count
+		first
+		next
+		SupDsig=D.SupD	
+		SupTsig=D.SupT
+		back	
+		D.VolD=(D.SupD+SupDsig)/2*IntPer%
+		D.VolT=(D.SupT+SupTsig)/2*IntPer%
+        D.VolDT=VolDT+D.VolD
+        D.VolTT=VolTT+D.VolT
+		VolDT=D.VolDT
+		VolTT=D.VolTT
+		i%=i%+1
+/*cls :print D.PK,D.VolD,D.VolT
+print "   ";D.VolDT,D.VolTT :get*/
+		update
+	endwh
+	busy Off
+
+ENDP
+
+PROC OreplTal:(PK,Xe,Ye,Ze,DES,m,i,Lado%)
+local Lado$(2,3),D%
+local PKant,TtalI,TtalD,DtalI,DtalD,DTCI,DTCD
+local AZI,X,Y,Z
+local Valor
+local AZIpos,AZIper,Zrep,Zerr,DSTalPer
+local TipoTal$(9)
+
+	Lado$(1)="IZQ"
+	Lado$(2)="DCH"
+
+	rem Taludes en Terraplen
+	open Ftlt$,A,PK,TtalI,TtalD
+	PKant=0
+	first                           
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos-1
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	TtalI=A.TtalI
+	TtalD=A.TtalD
+	CLOSE
+
+	rem Taludes en Desmonte
+	open Ftld$,A,PK,DtalI,DTCI,DtalD,DTCD
+	PKant=0
+	first
+	while eof=0
+		if (PK>PKant and PK<A.PK) or (PK=A.PK)
+			Posicio%=pos-1
+			break
+		endif
+		PKant=A.PK
+		next
+	endwh
+	position Posicio%
+	DtalI=A.DtalI
+	DTCI=A.DTCI
+	DtalD=A.DtalD
+	DTCD=A.DTCD
+	CLOSE
+
+
+	while 1
+		while 1
+			rem Lecturas
+			if Auto%=1	rem entrada automatica
+				OLeerET:
+			else
+				LH=0
+				LV=0
+				DST=0
+				dinit "PK="+gen$(PK,15)
+				dfloat LH,"L.H:",0,400
+				dfloat LV,"L.V:",0,400
+				dfloat DST,"DST:",0.5,9999
+				D%=Dialog
+				if D%=0
+					break
+				endif
+			endif
+
+			rem Calculo del Azimut
+			AZI=LH+DES
+			if AZI>400
+				AZI=AZI-400
+			endif
+			if AZI<0
+				AZI=AZI+400
+			endif
+			rem Calculo de las Coordenadas de los puntos tomados
+			X=Xe+DST*sin((AZI*PI)/200)
+			Y=Ye+DST*cos((AZI*PI)/200)
+			Z=Ze+DST/tan((LV*pi)/200)+m-i
+						
+			rem Calculo del Azimut del eje al punto tomado	(AZIpos)
+			IF Yeje-Y=0
+				IF Xeje<X 
+					AZIpos=100
+				ELSE 
+					AZIpos=300
+				ENDIF
+			ELSE 
+				AZIpos=ATAN((X-Xeje)/(Y-Yeje))
+			ENDIF
+				
+			IF Y<Yeje
+				AZIpos=AZIpos+PI
+			ENDIF
+			IF AZI<0 
+				AZIpos=AZIpos+2*PI
+			ENDIF
+			IF AZIpos>(2*PI)
+				AZIpos=AZIpos-2*PI
+			ENDIF
+			AZIpos=(AZIpos*200)/PI
+	
+			rem Calculo Azimut eje-pto teorico (AZIper)  y de Dist. Eje-Pto tomado
+			if sin((AZIpos-AZIeje)*pi/200)<0
+				AZIper=AZIeje-100
+				DST=-sqr((Xeje-X)**2+(Yeje-Y)**2)
+			else
+				AZIper=AZIeje+100
+				DST=sqr((Xeje-X)**2+(Yeje-Y)**2)
+			endif
+			if AZIper>400
+				AZIper=AZIper-400
+			endif
+			if AZIper<0
+				AZIper=AZIper+400
+			endif                                
+			rem Control de posicionamiento en el talud
+			rem Calculo de la cota teorica en funcion de la distancia al eje
+DST=-10 
+rem !!!!!!
+			If Lado%=1
+				if DST<C.XArranI or DST>C.XexttI
+					dinit "­ PTO FUERA DE TALUD !"
+					if DST<C.XArranI
+						valor=abs(DST-C.XarranI)
+						dtext "ACERCARSE al eje ",gen$(Valor,15)
+					else
+						valor=abs(DST-C.XexttI)
+						dtext "ALEJARSE del eje ",gen$(Valor,15)
+					endif
+					dbuttons "Cancelar",27,"Leer",13
+					D%=dialog
+					if D%=0
+						return
+					endif
+					continue
+				endif
+				if C.ZarranI<C.ZptfI
+					TipoTal$="TERRAPLEN"
+					Zrep=C.ZexttI+(C.XexttI-C.XarranI)*-TtalI
+				else
+					TipoTal$="DESMONTE"
+					Zrep=C.ZexttI+(C.XexttI-C.XarranI)*DtalI
+				endif
+				break
+			else
+				if DST>C.XArranD or DST<C.XexttD
+					dinit "­ PTO FUERA DE TALUD !"
+					if DST>C.XArranD
+						valor=DST-C.XarranD
+						dtext "ACERCARSE al eje ",gen$(Valor,15)
+					else
+						valor=C.XexttD-DST
+						dtext "ALEJARSE del eje ",gen$(Valor,15)
+					endif
+					dbuttons "Cancelar",27,"Leer",13
+					D%=dialog
+					if D%=0
+						return
+					endif
+					continue
+				endif
+				if C.ZarranD<C.ZptfD
+					TipoTal$="TERRAPLEN"
+					Zrep=C.ZexttD+(C.XexttD-C.XarranD)*-TtalD
+				else
+					TipoTal$="DESMONTE"
+					Zrep=C.ZexttD+(C.XexttD-C.XarranD)*DtalD
+				endif
+				break
+			endif
+		endwh					
+
+		REM  Posicionamiento
+		DstAlPer=DST*sin((AZIper*pi)/200-(AZIpos*pi)/200)
+		DstAlPer=val(fix$(DstAlPer,3,15))
+DstAlPer=.8
+rem !!!!
+		Zerr=Zrep-Z
+		dinit "PK:"+gen$(PK,15)+" TALUD "+Lado$(Lado%)+" "+TipoTal$
+		if DstAlPer<-0.01
+			dtext "AVANZAR",gen$(ABS(DstAlPer),15)+" m",$300
+		elseif DstAlPer>0.01 					
+			dtext "RETROCEDER",gen$(DstAlPer,15)+" m",$300
+		else
+			dtext "","ALINEACION CORRECTA",$300
+		endif
+		if DstAlPer>-3 and DstAlPer<3
+			if Zerr<-0.01
+				dtext "COTA: BAJAR ",gen$(abs(Zerr),15),$300
+			elseif Zerr>0.01
+				dtext "COTA: SUBIR ",gen$(Zerr,15),$300
+			else
+				dtext "","PENDIENTE CORRECTA",$300
+			endif
+			dtext "Distancia al eje:",gen$(DST,15)+" m"
+		endif
+		dialog
+		dinit "PK:"+gen$(PK,15)+" TALUD "+Lado$(Lado%)+" "+TipoTal$
+		dbuttons "Salir",27,"Leer",13
+		D%=DIALOG
+		If D%=0
+			use C
+			close
+			return
+		endif
+		if D%=13
+			Continue
+		endif
+	endwh
+	
+ENDP
+
+PROC OeVisLC:
+LOCAL i%,Fin%,M%
+
+	Use C :OControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 70,10 :GPRINT "LISTADO DE COTAS"
+	gSTYLE 4
+	
+	gAT 1,18 :gPRINT "  PK        Rasante          Terreno         Cota Roja        "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	if count<>0
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*10)+18 :gPRINT C.PK 
+			gAT 40,(i%*10)+18 :gPRINT C.Zras
+			gAT 110,(i%*10)+18 :gPRINT C.Zterr
+			gAT 180,(i%*10)+18 :gPRINT C.Zroja
+			next
+		ENDWH
+	endif
+
+ENDP
+
+
+
+PROC OControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+
+PROC OeVisLP:
+LOCAL i%,Fin%,M%
+
+	Use B :OControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 65,10 :GPRINT "LISTADO DE PERALTES"
+	gSTYLE 4
+	
+	gAT 1,18 :gPRINT "  PK           Peralte IZQ            Peralte DCH                 "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	if count<>0
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*10)+18 :gPRINT B.PK 
+			gAT 70,(i%*10)+18 :gPRINT B.Piz
+			gAT 170,(i%*10)+18 :gPRINT B.Pde
+			next
+		ENDWH
+	endif
+
+
+ENDP
+
+PROC OdibP:
+local e,tx,tz,PK,M%,i%
+local PosC,PosB
+local PKant
+local D%,Num%,Obr%
+
+	OPEN Fprf$,A,PK,Dst,Cota
+	open FcajF$,B,PK,firme%,XptfI,ZptfI,XbermaI,ZbermaI,XarcenI,ZarcenI,XcalzaI,ZcalzaI,Xeje,Zeje,Xarista,Zarista,XptfD,ZptfD,XbermaD,ZbermaD,XarcenD,ZarcenD,XcalzaD,ZcalzaD
+	open FcajP$,C,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+	use B
+	first
+	if B.PK=0
+		PK=PK+IntPer%
+	else
+		PK=B.PK
+	endif
+	obr%=1
+	num%=1
+
+	e=7
+ 	defaultwin 1
+	while 1
+		USE c
+		first
+		while eof=0
+			if C.PK=PK
+				PosC=pos
+				break
+			endif
+			next
+		endwh	
+
+		if pos>count
+			busy "Calculando PK "+gen$(PK,15)
+			close 
+			close
+			close
+			OcajeoP:(PK)
+			trap use C
+			trap close
+			OPEN Fprf$,A,PK,Dst,Cota
+			open FcajF$,B,PK,firme%,XptfI,ZptfI,XbermaI,ZbermaI,XarcenI,ZarcenI,XcalzaI,ZcalzaI,Xeje,Zeje,Xarista,Zarista,XptfD,ZptfD,XbermaD,ZbermaD,XarcenD,ZarcenD,XcalzaD,ZcalzaD
+			open FcajP$,C,PK,perfil%,XarranI,ZarranI,XexttI,ZexttI,Xcun1I,Zcun1I,Xcun2I,Zcun2I,Xcun3I,Zcun3I,XptfI,ZptfI,XarranD,ZarranD,XexttD,ZexttD,Xcun1D,Zcun1D,Xcun2D,Zcun2D,Xcun3D,Zcun3D,XptfD,ZptfD,Xarista,Zarista
+			USE c
+			first
+			while eof=0
+				if C.PK=PK
+					PosC=pos
+					break
+				endif
+				next
+			endwh	
+		endif
+
+
+			use C
+			position PosC
+			USE B 
+			first
+			while eof=0
+				if B.PK=PK
+					PosB=pos
+					break
+				endif
+				next
+			endwh	
+			use B
+			tx=120
+			if (C.ZarranI>C.ZptfI and C.ZarranD>C.ZptfD) or (C.ZarranI<C.ZptfI and C.ZarranD<C.ZptfD)
+				if C.ZarranI>C.ZptfI rem Desmonte ambos lados
+					if C.ZarranI>C.ZarranD
+						Tz=50-(C.Zarista+C.ZarranI)*e/2
+					else
+						Tz=50-(C.Zarista+C.ZarranD)*e/2
+					endif
+				else
+					if C.ZarranI>C.ZarranD  rem Terraplen ambos lados
+						Tz=50-(B.Zeje+C.ZarranD)*e/2
+					else
+						Tz=50-(B.Zeje+C.ZarranI)*e/2
+					endif
+				endif
+			else
+				Tz=50-(C.ZarranI+C.ZarranD)*e/2	rem Desmonte y Terraplen
+			endif
+			position PosB
+		
+			PKant=0
+			use A
+			first	
+			cls
+		    gfont 13
+		    gstyle 0
+		    i%=0
+			while 1 
+				if A.PK=PK
+					i%=i%+1
+					if PKant<>PK
+						gat val(Fix$(A.Dst*e+tx,0,15)),100-val(fix$((A.Cota-0.3)*e+tz,0,15))
+						if num%=1
+							glineby 0,-2
+							gprint i%
+							gmove -len(gen$(i%,15))*6,2					
+						endif
+					else
+						glineto val(Fix$(A.Dst*e+tx,0,15)),100-val(fix$((A.Cota-0.3)*e+tz,0,15))
+						if num%=1
+							glineby 0,-2 
+							gprint i%
+							gmove -len(gen$(i%,15))*6,2
+						endif
+					endif
+			    endif
+			    if PKant=PK and A.PK<>PK
+			    	break
+			    endif
+			    PKant=A.PK
+			    next
+			endwh
+			
+	
+			if obr%=1
+				gat val(fix$(C.XarranI*e+tx,0,15)),100-val(fix$(C.ZarranI*e+tz,0,15))
+				glineto val(Fix$(C.XexttI*e+tx,0,15)),100-val(fix$(C.ZexttI*e+tz,0,15))
+		
+				if C.ZptfI<C.ZArranI
+					glineto val(Fix$(C.Xcun3I*e+tx,0,15)),100-val(fix$(C.Zcun3I*e+tz,0,15))
+					glineto val(Fix$(C.Xcun2I*e+tx,0,15)),100-val(fix$(C.Zcun2I*e+tz,0,15))
+					glineto val(Fix$(C.Xcun1I*e+tx,0,15)),100-val(fix$(C.Zcun1I*e+tz,0,15))
+				endif
+	
+				glineto val(Fix$(C.XptfI*e+tx,0,15)),100-val(fix$(C.ZptfI*e+tz,0,15))
+				glineto val(Fix$(C.Xarista*e+tx,0,15)),100-val(fix$(C.Zarista*e+tz,0,15))
+				glineto val(Fix$(C.XptfD*e+tx,0,15)),100-val(fix$(C.ZptfD*e+tz,0,15))
+		
+				if C.ZptfD<C.ZArranD
+					glineto val(Fix$(C.Xcun1D*e+tx,0,15)),100-val(fix$(C.Zcun1D*e+tz,0,15))
+					glineto val(Fix$(C.Xcun2D*e+tx,0,15)),100-val(fix$(C.Zcun2D*e+tz,0,15))
+					glineto val(Fix$(C.Xcun3D*e+tx,0,15)),100-val(fix$(C.Zcun3D*e+tz,0,15))
+				endif
+		
+				glineto val(Fix$(C.XexttD*e+tx,0,15)),100-val(fix$(C.ZexttD*e+tz,0,15))
+				glineto val(Fix$(C.XarranD*e+tx,0,15)),100-val(fix$(C.ZarranD*e+tz,0,15))
+		
+				gat val(Fix$(C.XptfI*e+tx,0,15)),100-val(fix$(C.ZptfI*e+tz,0,15))
+				glineto val(Fix$(B.XbermaI*e+tx,0,15)),100-val(fix$(B.ZbermaI*e+tz,0,15))
+				glineto val(Fix$(B.XarcenI*e+tx,0,15)),100-val(fix$(B.ZarcenI*e+tz,0,15))
+				glineto val(Fix$(B.XcalzaI*e+tx,0,15)),100-val(fix$(B.ZcalzaI*e+tz,0,15))
+				glineto val(Fix$(B.Xeje*e+tx,0,15)),100-val(fix$(B.Zeje*e+tz,0,15))
+				glineto val(Fix$(B.XcalzaD*e+tx,0,15)),100-val(fix$(B.ZcalzaD*e+tz,0,15))
+				glineto val(Fix$(B.XarcenD*e+tx,0,15)),100-val(fix$(B.ZarcenD*e+tz,0,15))
+				glineto val(Fix$(B.XbermaD*e+tx,0,15)),100-val(fix$(B.ZbermaD*e+tz,0,15))
+				glineto val(Fix$(C.XptfD*e+tx,0,15)),100-val(fix$(C.ZptfD*e+tz,0,15))
+			endif
+	
+			gstyle 1
+			gfont 9
+		    gat 185,99 :gprint "PK:";PK
+		do
+			M%=get
+		until M%=258 or M%=259 or M%=27 or M%=%+ or M%=%- or M%=290
+		if M%=258
+			PK=PK+IntPer%
+		endif
+		if M%=259
+			PK=PK-IntPer%
+		endif
+/*		if PK<20
+			beep 4,300
+			PK=1000
+		endif
+		if PK>1000
+			beep 4,300
+			PK=20
+		endif*/
+		If M%=27
+			break
+		endif
+		if M%=%+
+			e=e+1
+		endif
+		if M%=%-
+			e=e-1
+		endif
+		if M%=290
+			minit
+			mcard "Dibujo de Perfiles","Ver PK",%v,"Filtros",%f,"Zoom Cerca",%+,"Zoom Lejos",%-
+			M%=MENU 
+			if M% and $200 
+				M%=M%-$200
+			endif
+			if M%=%v
+				dinit "Ver PK"
+				dfloat PK,"PK:",0,999999
+				D%=dialog
+				if D%=0
+					continue
+				endif
+			endif
+			if M%=%f
+				dinit "FILTROS"
+				dchoice num%,"Numeros Ptos Perfil","Si,No"
+				dchoice obr%,"Obra","Si,No"
+				D%=dialog
+				if D%=0
+					continue
+				endif
+			endif
+			if M%=%+
+				e=e+1
+			endif
+			if M%=%-
+				e=e-1
+			endif
+		endif
+				
+			
+	endwh
+	close
+	close	
+	close
+
+ENDP
+
+PROC OeVisLM:
+LOCAL i%,Fin%,M%
+
+	Use D :OControl:(M%,8,2,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	if PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 20,10 :GPRINT "LISTADO MOV.TIERRAS: DESMONTE"
+		gSTYLE 4
+		
+		gAT 1,18 :gPRINT "  PK     Superficie    Volumen                                    "
+		gSTYLE 0
+		gat 220,10 :gprint"1/1"
+		if count<>0
+			position PosFil%
+			i%=0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT D.PK 
+				gAT 40,(i%*10)+18 :gPRINT D.SupD
+				gat 100,(i%*10)+18 :gprint D.VolD
+				gAT 160,(i%*10)+18 :gPRINT D.VolDT
+				next
+			ENDWH
+		endif
+	endif
+
+
+	if PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 20,10 :GPRINT "LISTADO MOV.TIERRAS: TERRAPLEN"
+		gSTYLE 4
+		
+		gAT 1,18 :gPRINT "  PK     Superficie    Volumen                                    "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		if count<>0
+			position PosFil%
+			i%=0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT D.PK 
+				gAT 40,(i%*10)+18 :gPRINT D.SupT
+				gat 100,(i%*10)+18 :gprint D.VolT
+				gAT 160,(i%*10)+18 :gPRINT D.VolTT
+				next
+			ENDWH
+		endif
+	endif
+
+ENDP
+
+PROC OListMvT:(D%)
+local M%,DD%
+local Ret%,Handle%,Address%,record$(255)
+
+	
+	if D%=%p	rem Salida por PANTALLA
+		cls
+		PosFil%=1
+		PosCol%=1
+		OeVisLM:
+		while 1	
+			M%=get
+			if M%>=256 and M%<=263
+				OControl:(M%,8,2,1,count)
+				OeVisLm:
+			endif
+			if M%=27
+				break
+			endif
+		endwh
+    endif
+    
+	if D%=%f	rem Salida por FICHERO
+		
+		setpath "\TOBA\LISTADOS\OBRA\"
+		DINIT "EXPORTAR LISTADO MOV.TIERRAS"
+		dFILE File$,"File",1
+		DD%=DIALOG
+		if DD%=0
+			return
+		endif
+ 	
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+			DD%=dialog
+			if DD%=%r
+				delete File$
+				ret%=IOOPEN(handle%,File$,$0121)
+			endif
+			if DD%=%a
+				ret%=IOOPEN(handle%,File$,$0123)
+			endif
+		else
+			ret%=IOOPEN(handle%,File$,$0121)
+		ENDIF
+
+		busy "Exportando list..."
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(Fobr$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="OBRA:  LISTADO DE MOVIMIENTO DE TIERRAS"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     PK     SUP Desm.   SUP Terrap.    VOL Desm.                  VOL Terrap.               "
+		ret%=IOWRITE(handle%,address%+1,len(record$)) 
+		record$="    "+rept$("=",89) 
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		use D
+		first
+		WHILE  eof=0
+			record$="     "+gen$(D.PK,15)+rept$(" ",8-len(gen$(D.PK,15)))
+			record$=record$+gen$(D.SupD,15)+rept$(" ",12-len(gen$(D.SupD,15)))
+			record$=record$+gen$(D.SupT,15)+rept$(" ",15-len(gen$(D.SupT,15)))
+			record$=record$+gen$(D.VolD,15)+rept$(" ",12-len(gen$(D.VolD,15)))
+			record$=record$+gen$(D.VolDT,15)+rept$(" ",15-len(gen$(D.VolDT,15)))
+			record$=record$+gen$(D.VolT,15)+rept$(" ",15-len(gen$(D.VolT,15)))
+			record$=record$+gen$(D.VolTT,15)
+			next
+			ADDRESS%=ADDR(record$)
+			PEEKB(ADDRESS%)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+		ENDWH
+
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" " 
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+		ret%=IOCLOSE(handle%)
+		busy off
+		giprint "List. Mov.Tierras Exportado"
+	endif
+
+ENDP
+
+PROC Orsset:(Baud%,Parity%,Data%,stop%,hand%,term&)
+local Frame%,srchar%(6),err%,dummy%
+
+	frame%=data%-5
+	if stop%=2
+		frame%=frame% or 16
+	endif
+	if Parity%
+		frame%=frame% or 32
+	endif
+	srchar%(1)=baud% or (baud%*256)
+	srchar%(2)=frame% or (parity%*256)
+	srchar%(3)=(hand% and 255) or $1100
+	srchar%(4)=$13
+	pokel addr(srchar%(5)),term&
+	err%=iow(-1,7,srchar%(1),dummy%)
+	if err%
+		raise err%
+	endif
+
+
+ENDP
+

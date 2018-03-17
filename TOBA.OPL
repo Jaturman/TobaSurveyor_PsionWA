@@ -1,0 +1,296 @@
+/*app TOBA
+	type $1001
+	icon "\TOBA\SISTEMA\ICO.PIC"
+enda*/
+PROC Inicio:
+GLOBAL Poscol%,Posfil%
+global File0$(128),File$(128)
+global Fplt$(50),Fple$(50),Fplc$(50) 
+global Falz$(50)
+global Ftrv$(50),Fsec$(50),Ffir$(50),Fpla$(50),Fper$(50)
+global Fcun$(50),Ftld$(50),Ftlt$(50),Fgeo$(50)
+global Fbse$(50)
+global Ftaq$(50),Fpts$(50),Fses$(50),Fetq$(50)
+global Fprf$(50)
+global Fobr$(50),FFobr$(50),FcajP$(50),FcajF$(50)
+global Auto%,utm%,ses% 	rem Preferencias del taquimetrico
+Global Posicio% 		rem Preferencias de perfiles
+global LH,LV,DST	rem Lecturas de la estacion total
+global Xeje,Yeje,Zeje,AZIeje
+global Piz,Pde	rem Piz=Peralte Lado Izquierdo   Pde=Peralte Lado Derecho
+global PKiniPLT	rem Punto kilometrico inicial de la planta
+global IntPer%	rem Intervalo entre perfiles
+global TITULO$(30)
+
+local OW%,NW%,WId%
+	
+
+	iF not exist ("\TOBA\SISTEMA\FILE.MON")
+		CREATE "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		close
+	endif
+	if not exist ("\TOBA\SISTEMA\TOBA.INI")
+		create "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+		close
+	endif	
+	open "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Fplt$=D.Fplt$
+	Falz$=D.Falz$
+	Ftrv$=D.Ftrv$
+    Fbse$=D.Fbse$
+    Ftaq$=D.Ftaq$
+    Fprf$=D.Fprf$
+    Fobr$=D.Fobr$
+    Auto%=D.Auto%
+	utm%=D.utm%
+	Ses%=D.ses%
+    close
+
+
+	defaultwin 1
+	gXborder 1,$203,240,79
+
+    OW%=gIDENTITY 
+	NW%=gCreate(30,7,184,62,1,1)
+    gGrey 1
+    Wid%=gLoadBit("\TOBA\SISTEMA\TOBA.PIC",0,1)
+    gUse NW%
+    gCopy Wid%,0,0,gWidth,64,0
+    gClose(Wid%)
+    gGrey 0
+    Wid%=gLoadBit("\TOBA\SISTEMA\TOBA.PIC",0,0)
+    gUse NW%
+    gCopy Wid%,0,0,gWidth,64,0
+    gClose(Wid%)
+		
+	guse 1
+	gfont 5
+	gstyle 3
+	gat 30,88 :gprint "TOBA: ASISTENTE EN TOPOGRAFIA" 
+	gstyle 0
+	gat 62,97 :gprint "v:1.0 CUENCA-Abr99.Turegano"
+	gfont 13
+	gat 1,99 :gprint "Iniciando........"	
+	gtmode 1
+	gat 1,99
+	gat 1,99 : gprint "Iniciando........"	
+	ggmode 0
+ 
+	get
+	gclose NW%
+	gcls 
+	Menu:
+
+
+
+ENDP
+
+PROC Menu:
+local M%,Init%,D%
+local OW%,NW%,WId%
+local Apar%
+
+
+	cls
+	trap unloadm "\TOBA\SISTEMA\TRANSVER.OPO"          
+	trap unloadm "\TOBA\SISTEMA\OBRA.OPO"          
+	
+    M%=1
+    while 1
+
+
+		if M%=1
+		
+
+			DEFAULTWIN 1
+			gat 5,1
+			gborder 1,229,16
+			gat 18,12 :gprint "Obra"
+			gat 73,12 :gprint "Red"     
+			GAT 106,12 :GPRINT "Proyecto"
+			gat 172,12 :gprint "Terreno"
+	
+			
+			gat 3,41   
+			gdrawobject 0,1,145,42
+			gstyle 3 
+			gat 6,50
+			gfont 13 :gprint "RED:"
+			if Fbse$<>""
+				gstyle 0
+				gfont 5
+				gat 70,53
+				gprint mid$(Fbse$,17,len(Fbse$)-20)
+			endif
+			
+			
+			
+			gat 0,46
+			gstyle 3
+			gat 6,62 
+			gfont 13 :gprint "OBRA:"
+			gstyle 0
+			GFONT 5
+			GAT 70,66
+			GPRINT Fobr$
+			
+				
+			
+			gat 0,60        
+			gstyle 3
+			GAT 6,74
+			gfont 13 :GPRINT "TAQUIM:"
+			gstyle 0
+			gat 70,78
+			gfont 5
+			gprint Ftaq$
+			
+			gat 0,85
+			ggrey 0
+			gfill 240,15,0 
+			GTMODE 2
+			GAT 0,95
+			gstyle 0
+			GPRINT "  <ESC>Salir  <MENU>Menu                                                     "
+			GTMODE 0
+
+			gAT 0,20: gbox 240,80
+			
+			gat 2,36
+			gfont 5
+			gstyle 9
+			gprint "ASISTENTE en TOPOGRAFIA"
+
+		    OW%=gIDENTITY 
+			NW%=gCreate(170,37,48,48,1,1)
+		    gGrey 1
+		    Wid%=gLoadBit("\TOBA\SISTEMA\ICO.PIC",0,1)
+	    	gUse NW%
+		    gCopy Wid%,0,0,gWidth,48,2
+		    gClose(Wid%)
+		    gGrey 0
+		    Wid%=gLoadBit("\TOBA\SISTEMA\ICO.PIC",0,0)
+		    gUse NW%
+		    gCopy Wid%,0,0,gWidth,48,2
+		    gClose(Wid%)
+		    guse 1
+        endif
+
+
+
+
+
+
+		M%=get
+
+		if M%=290 or (M% and $200)
+			Init%=0 
+			MINIT
+			MCARD "   Obra      ","Obra",-%x,"Preferencias",%f,"Herramientas",-%h,"Acerca de ...",%c
+			MCARD " Red ","Bases",%b
+			MCARD " Proyecto ","Eje en Planta",%p,"Eje en Alzado",%a,"Transversales",%t
+			MCARD " Terreno   ","Taquimetrico",%q,"Perfiles",%r
+			M%=MENU(init%)
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+			if M%=%x	rem OBRA
+				loadM "\TOBA\SISTEMA\OBRA.OPO"
+	    		guse 2
+	    		gclose NW%
+				OBRAmenu:
+				unloadM "\TOBA\SISTEMA\OBRA.OPO"
+				M%=1
+			endif
+	    	IF M%=%p 	rem PLANTA
+	    		loadm "\TOBA\SISTEMA\PLANTA.OPO"     
+	    		guse 2
+				gclose NW%
+	    		guse 1
+	    		PLTmEnt:
+	    		unloadm "\TOBA\SISTEMA\PLANTA.OPO"
+	    		M%=1
+			ENDIF
+			IF M%=%a	REM ALZADO
+	    		loadm "\TOBA\SISTEMA\ALZADO.OPO"
+	    		guse 2
+	    		gclose NW%
+	    		guse 1
+	    		ALZmenu:
+	    		unloadm "\TOBA\SISTEMA\ALZADO.OPO"
+	    		M%=1
+			ENDIF
+			IF M%=%t	REM TRANSVERSAL 
+	    		loadm "\TOBA\SISTEMA\TRANSVER.OPO"
+	    		guse 2
+	    		gclose NW%
+	    		guse 1
+	    		Tinicio:
+	    		M%=1
+			ENDIF
+			IF M%=%q	REM TAQUIMETRICO 
+	    		loadm "\TOBA\SISTEMA\TAQUIM.OPO"
+	    		guse 2
+	    		gclose NW%
+	    		guse 1
+	    		Qinicio:
+				unloadm "\TOBA\SISTEMA\TAQUIM.OPO"
+	    		M%=1
+			ENDIF
+			if M%=%r	rem PERFILES
+				loadm "\TOBA\SISTEMA\PERFILES.OPO"
+	    		guse 2
+	    		gclose NW%
+	    		guse 1
+				Rmenu:
+				unloadm "\TOBA\SISTEMA\PERFILES.OPO"
+	    		M%=1
+			endif
+			IF M%=%b	REM BASES
+	    		loadm "\TOBA\SISTEMA\BASES.OPO"
+	    		guse 2
+	    		gclose NW%
+	    		guse 1
+	    		BSEmenu:
+	    		unloadm "\TOBA\SISTEMA\BASES.OPO"
+	    		M%=1
+			ENDIF
+			if M%=%h	REM HERRAMIENTAS
+				loadm "\TOBA\SISTEMA\UTLIB.OPO"
+				utlib: 
+				unloadm "\TOBA\SISTEMA\UTLIB.OPO" 
+			endif 
+			if M%=%c	REM Acerca De..
+				Dinit "TOBA: Asistente Topografia"
+				dtext "","¸ A.T.TOBA"
+				dtext "","v:1.0 Abr99"
+				dtext "","J.Turegano"
+				dialog
+			ENDIF			
+			if M%=%f	Rem Preferencias				 
+				dinit "PREFERENCIAS"
+				dchoice utm%,"Coordenadas UTM","Si,No"
+				dchoice Auto%,"Entrada de Datos","Automatica,Manual"
+				dchoice Apar%,"Estacion Total","TOPCON CTS-2"
+				D%=dialog
+				if D%=0
+					continue
+				endif
+			endif
+				
+		endif
+		if M%=27
+			dinit "SALIR DE A.T.TOBA"
+			dbuttons "Cancelar",27,"Si",13
+			D%=dialog
+			if D%=0
+				continue
+			endif
+			
+			stop
+		endif
+	endwh
+	
+ENDP
+

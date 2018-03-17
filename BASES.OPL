@@ -1,0 +1,592 @@
+
+PROC BSEmenu:
+LOCAL M%,i%,nPto%,D%,nPto&
+local PosPto%
+
+
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Fbse$=D.Fbse$
+	if Fbse$<>""
+		OPEN Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+	endif	
+	use D
+	close
+
+	rem Comprueba si hay que abrir o crear un fichero de planta
+
+	if Fbse$=""
+		giprint "­ No hay bases seleccionadas !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="BAS"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Bfile:(M%)
+		until File$<>"" 
+	endif
+
+	cls
+
+	Use A
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+
+		BeVisBse:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos de entrada"
+		
+			while 1
+				D%=Bmodif:(0)
+				BeVisBse:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						BControl:(M%,8,2,1,count)
+						BeVisBse:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+
+
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Bcontrol:(M%,4,2,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/
+				MCARD "Datos","A¤adir",%a,"Modificar",%m,"Borrar",-%b,"Listar",%l
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			IF M%=%l :BExpList: :endif 	rem Listar Bases a fichero AscII
+			if M%=%m 	rem Modificacion de las bases 
+				dINITs 
+				dposition 1,1
+				dlong nPto&,"MODIFICAR Base N§:",1,99999
+				D%=dialog
+				if D%=0
+					return
+				endif
+				nPto%=nPto&
+				Bmodif:(nPto%) 
+			endif	
+			if M%=%a	rem A¤adir bases
+				Bmodif:(0)
+			endif
+			if M%=%b	rem Borrar bases
+				dinit "BORRAR BASES"
+				dlong nPto&,"Pto:",1,99999
+				D%=dialog
+				nPto%=nPto&
+				if D%=0
+					break
+				endif
+				first
+				PosPto%=find(gen$(nPto%,7))
+				if PosPto%=0
+					giprint "­ Base No encontrada !"
+					continue
+				endif
+				position PosPto%
+				erase
+				giprint "Base "+gen$(nPto%,7)+" borrada"
+			endif		
+		rem Importar/Exportar AscII
+			if M%=%0 :Bimport: :endif
+			if M%=%1 :Bexport: :endif
+
+		rem Fichero
+			Bfile:(M%)
+
+    	endif
+
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			D.Fbse$=Fbse$
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			use A : close
+			return
+		endif
+	endwh
+ENDP
+
+
+PROC Bmodif:(pto%)
+local X,Y,Z,nPto$(8),Obs$(20),D%,i%,PosPto%
+
+	if pto%<>0 
+		first
+		PosPto%=find(gen$(Pto%,7))
+		if PosPto%=0
+			giprint "­ Base No encontrada !"
+			return
+		endif
+		position PosPto%
+	else
+		PosPto%=count+1
+	endif
+		X=A.X
+		Y=A.Y
+		Z=A.Z
+		nPto$=A.Pto$
+		Obs$=A.Obs$
+		dinit "BASE "+A.Pto$
+	    dedit nPto$,"N§ Pto:"
+	    dedit Obs$,"Obs",20
+		dfloat X,"X:",0,999999
+		dfloat Y,"Y:",0,9999999
+		dfloat Z,"Z:",0,9999
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+		A.X=X
+		A.Y=Y
+		A.Z=Z
+		A.Pto$=nPto$
+		A.Obs$=Obs$
+		i%=0
+
+		if PosPto%>count
+			append
+		else
+			while i%<count-PosPto%+1
+				i%=i%+1
+				update
+				position PosPto%
+			endwh
+		endif
+
+		rem Ordenar las bases de menor a mayor
+ENDP
+
+
+
+
+PROC BControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+PROC BeVisBse:
+LOCAL i%,Fin%
+	use A
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint mid$(Fbse$,17,len(Fbse$)-20)
+	gstyle 1
+
+	rem Control de cuanta informacion debe sacar
+		If Count-1>8
+			Fin%=8
+		else
+			Fin%=count
+		endif
+
+
+
+	IF PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 100,10 :GPRINT "BASES"
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Pto             X                       Y                     Z           "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		position PosFil%
+		i%=0
+		if count<>0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT A.Pto$
+				gAT 40,(i%*10)+18 :gPRINT A.X
+				gat 110,(i%*10)+18 :gprint A.Y
+				gAT 185,(i%*10)+18 :gPRINT A.Z
+				next
+			ENDWH
+		endif
+	ENDIF
+
+
+	IF PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 100,10 :GPRINT "BASES"
+		GSTYLE 4
+		gAT 1,18 : gPRINT" Pto        Obs                                                           "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		position PosFil%
+		i%=0
+		if count<>0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT A.Pto$
+				gat 35,(i%*10)+18 :gprint A.Obs$
+				next
+			ENDWH
+		endif
+ENDIF
+
+ENDP
+PROC Bfile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","BASES")
+		if File$<>""
+			TRAP CLOSE 
+			FBse$="\TOBA\DBF\BASES\"+File$+".BSE"
+			CREATE Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","BASES") 
+		if File$<>""
+			trap use A
+			trap close
+			FBse$="\TOBA\DBF\BASES\"+File$+".BSE"
+			OPEN Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+		endif
+	endif	
+
+	rem Copiar
+
+	if M%=%* 
+		File:("COPIAR","BASES")
+		if file$<>""
+			a$="\TOBA\DBF\BASES\"+File0$+".BSE"
+			b$="\TOBA\DBF\BASES\"+File$+".BSE"
+			if a$=Fbse$
+				close
+			endif
+			copy a$,b$
+			TRAP OPEN Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","BASES")
+		If File$<>"" 
+			a$="\TOBA\DBF\BASES\"+File$+".BSE"
+			delete a$
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","BASES")
+		if File$<>""
+			a$="\TOBA\DBF\BASES\"+File0$+".BSE"
+			b$="\TOBA\DBF\BASES\"+File$+".BSE"
+			if a$=Fbse$
+				close
+			endif
+			rename a$,b$
+			if a$=Fbse$
+				Fbse$=b$
+			endif
+			TRAP OPEN Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+
+
+
+ENDP
+
+PROC BExpList:
+LOCAL a$(50),D%,ret%,record$(255),address%,handle%
+
+	setpath "\TOBA\LISTADOS\BASES\"
+	DINIT "EXPORTAR BASES"
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+ 	
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+		D%=dialog
+		if D%=%r
+			delete File$
+			ret%=IOOPEN(handle%,File$,$0121)
+		endif
+		if D%=%a
+			ret%=IOOPEN(handle%,File$,$0123)
+		endif
+	else
+		ret%=IOOPEN(handle%,File$,$0121)
+	ENDIF
+
+	busy "Exportando list..."
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(mid$(Fbse$,17,len(Fbse$)-20))
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+
+		record$="RED: BASES"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="      N§        X            Y             Z         Obs"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",67)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		first
+			
+
+
+	WHILE  eof=0
+		record$="     "+A.Pto$+rept$(" ",8-len(A.Pto$))
+		record$=record$+gen$(A.X,15)+rept$(" ",13-len(gen$(A.X,15)))
+		record$=record$+gen$(A.Y,15)+rept$(" ",14-len(gen$(A.Y,15)))
+		record$=record$+gen$(A.Z,15)+rept$(" ",11-len(gen$(A.Z,15)))
+		record$=record$+A.Obs$
+		next
+	ENDWH
+
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+
+	ret%=IOCLOSE(handle%)
+	busy off
+	a$="Listado de bases exportado"
+	giprint a$,3
+	return
+
+ENDP
+PROC BExport:
+LOCAL D%
+	setpath "\TOBA\COM\BASES\"
+	DINIT "EXPORTAR BASES"
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"Reemplazar",13
+		D%=dialog
+		if D%=13
+			DELETE(File$)
+		else
+			return
+		endif
+	ENDIF
+
+	busy "Exportando Alzado.."
+	LOPEN File$
+	lprint "*BSE"
+	use A
+	first
+	WHILE  eof=0
+		lprint A.Obs$;", ";
+		lprint A.X;", ";
+		lprint A.Y;", ";
+		lprint A.Z
+		next
+	endwh
+
+			
+	LCLOSE
+	busy off
+	giprint "Alzado Exportado",3
+
+
+ENDP
+PROC BImport:
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(5,20)
+LOCAL a$(50),D%
+
+	setpath "\TOBA\COM\BASES\"
+	dinit "IMPORTAR BASES"
+	dfile File$,"File",0
+	D%=dialog
+	if D%=0
+		return
+	endif
+	ret%=IOOPEN(handle%,File$,$0420)
+	address%=ADDR(record$)
+
+
+	rem control de fichero *BSE
+	ret%=IOREAD(handle%,address%+1,255)
+	POKEB address%,ret%
+	IF record$<>"*BSE" AND Column%=0 
+		a$="­ Fichero de Bases Incorrecto !"
+		dinit
+		dtext "",a$,0
+		dbuttons "Salir",27
+		dialog
+		return
+	endif
+
+	busy "Importando Bases . ."
+
+
+	rem reinicia el fichero para poder acoger un nuevo fichero importado.
+	close
+	delete Fbse$
+	CREATE Fbse$,A,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+
+	rem Manejo de la cadena de carazteres Record$
+	Rem	que equivale a una linea del fichero AscII
+	WHILE 1
+		ret%=IOREAD(handle%,address%+1,255)
+		IF ret%=-36 
+			BREAK 
+		ENDIF
+		POKEB address%,ret%  
+		i%=0 :Column%=0 
+		Do
+			mm$=""
+			WHILE  i%<=LEN(record$)
+				i%=i%+1 
+				m$=MID$(record$,i%,1)
+				IF  m$="," 
+					BREAK 
+				ENDIF
+				if m$<>" "
+					mm$=mm$+m$
+				endif
+			ENDWH
+			Column%=Column%+1 
+			Field$(Column%)=(mm$)
+			mm$=""
+
+			WHILE MID$(record$,i%,1)=" "
+			 	i%=i%+1
+			ENDWH
+		UNTIL Column%=4
+		A.Obs$=Field$(1)
+		A.X=val(Field$(2))
+		A.Y=val(Field$(3))
+		A.Z=val(Field$(4))
+		A.Pto$=gen$(count+1,7)
+
+		append	
+	ENDWH
+	busy off
+	giprint "Importacion finalizada",3
+
+ENDP
+
+

@@ -1,0 +1,1079 @@
+PROC Rmenu:
+LOCAL M%,i%
+local ListBSE$(255),ListPLT$(255),FichBSE$(25,255),FichPLT$(25,255),j%,D%
+local PosINI%,PosFIN%
+local PK,f%
+global PKvis
+
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Fprf$=D.Fprf$
+	if Fprf$<>""
+		OPEN Fprf$,A,PK,Dst,Cota
+	endif	
+	use D
+	close
+	rem Comprueba si hay que abrir o crear un fichero de perfil
+	if Fprf$=""                             
+		giprint "­ No hay perfil seleccionado !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="PER"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Rfile:(M%)
+		until File$<>"" 
+	else
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		first
+		while eof=0
+			f%=find(mid$(Fprf$,28,len(Fprf$)-31)+".PER")
+			if f%<>0
+				IntPer%=D.IntPer%
+				break
+			endif
+		endwh
+		close
+	endif
+
+	
+	cls
+
+	PKvis=0
+	
+	Use A
+	PosFil%=1
+	PosCol%=1
+
+	first
+	PosINI%=0
+	PosFIN%=0
+	while eof=0
+		if PosINI%=0 and A.PK=0
+			PosINI%=pos
+		endif
+		if A.PK=0
+			PosFIN%=pos
+		else
+			if PosFIN%=i% and i%<>0
+				break
+			endif
+		endif
+		next
+		i%=PosFIN%
+	endwh
+
+	while 1
+
+
+		ReVisPrf:(PosINI%,PosFIN%)
+
+		M%=Get 
+		if M%=257 or M%=256 or M%=260 or M%=261
+			use A
+			Rcontrol:(M%,PosINI%,PosFIN%)
+		endif
+			
+
+			
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/
+				mcard "Opciones","Preferencias",%p
+				MCARD "Datos","A¤adir",%a,"Borrar",%b,"Ver PK",%v
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+
+			IF M%=%p	rem Preferencias
+				rem Listado de ficheros que aparecen en el dCHOICE
+				open "\TOBA\SISTEMA\FILE.MON",D,File$,Obs$,Datime$,IntPer%
+				i%=1
+				ListBSE$=""
+				first				
+				while eof=0
+					if right$(D.File$,3)="BAS"
+						FichBSE$(i%)=D.File$
+						ListBSE$=ListBSE$+left$(D.File$,len(D.File$)-4)+","
+						i%=i%+1
+					endif					
+	                next
+	            endwh
+	            if ListBSE$<>""
+	            	ListBSE$=left$(ListBSE$,len(ListBSE$)-1)
+	            endif
+				i%=1
+				ListPLT$=""
+				first				
+				while eof=0
+					if right$(D.File$,3)="PLA"
+						FichPLT$(i%)=D.File$
+						ListPLT$=ListPLT$+left$(D.File$,len(D.File$)-4)+","
+						i%=i%+1
+					endif					
+	                next
+	            endwh
+	            if ListPLT$<>""
+	            	ListPLT$=left$(ListPLT$,len(ListPLT$)-1)
+	            endif
+	            use D
+	            close
+	            Posicio%=Posicio%+1
+				DINIT "PREFERENCIAS"
+				dchoice Auto%,"Entrada datos:","XYZ Automatica,XYZ Manual,Distancia-Cota"
+				dchoice Posicio%,"Posicion:","No,Si"
+				dchoice utm%,"UTM:","Si,No"
+				if ListPLT$<>""
+					dchoice i%,"Fichero Planta:",ListPLT$
+				endif
+				if ListBSE$<>""
+					dchoice j%,"Fichero Bases:",ListBSE$
+				endif
+				D%=dialog
+				If D%=0
+					Continue
+				endif
+				Posicio%=Posicio%-1
+				if ListPLT$<>""
+					Fplt$=left$(FichPLT$(i%),len(FichPLT$(i%))-4)
+				endif
+				if ListBSE$<>""
+					Fbse$="\TOBA\DBF\BASES\"+left$(FichBSE$(j%),len(FichBSE$(i%))-4)+".BSE"
+				endif                   
+	    	endif
+
+			IF M%=%a
+				Rdatos:           
+			endif
+
+			if M%=%v 
+				dinit "VER PK"
+				dfloat PKvis,"PK",0,100000
+				D%=Dialog
+				M%=%x
+			endif
+		
+			IF M%=%b
+				dinit "BORRAR PK"
+				dfloat PK,"PK",0,100000
+				D%=Dialog
+				if D%=0
+					continue
+				endif
+				use A
+				first
+				i%=0
+				while eof=0
+					if A.PK=PK
+						erase
+						i%=i%+1
+						back
+					endif
+					next
+				endwh
+				if i%=0
+					giprint "PK:"+gen$(PK,15)+" NO contiene puntos"
+				else
+					giprint "PK:"+gen$(PK,15)+" Borrado"
+					if PK=PKvis
+						M%=%x
+					endif
+				endif
+			endif
+			
+
+			rem Importar/Exportar AscII
+				if M%=%0 :Rimport: :endif
+				if M%=%1 :Rexport: :endif
+
+		endif		
+
+
+		if M%=259 or M%=258 or M%=%x or M%=%a or M%=0
+			rem Localiza entre que records se encuentra los puntos del PKvis
+			iF M%=259 rem Izquierda
+				PKvis=PKvis-1*IntPer%
+			endif
+	
+			if M%=258 rem Derecha
+				PKvis=PKvis+1*IntPer%
+			endif
+
+			use A
+			first
+			PosINI%=0
+			PosFIN%=0
+			while eof=0
+				if PosINI%=0 and PKvis=A.PK
+					PosINI%=pos
+				endif
+				if PKvis=A.PK
+					PosFIN%=pos
+				else
+					if PosFIN%=i% and i%<>0
+						break
+					endif
+				endif
+				i%=PosFIN%
+				next
+			endwh
+        endif
+
+		rem Fichero
+			Rfile:(M%)
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			D.Fprf$=Fprf$
+			D.Fbse$=Fbse$
+			D.Auto%=Auto%
+			D.Posicio%=Posicio%
+			if Fplc$<>""
+				D.Fplt$=mid$(Fplc$,23,len(Fplc$)-26)
+			endif
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			use A : close
+			return
+		endif
+	endwh
+
+
+ENDP
+
+PROC Rfile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","PERFILES")
+		if File$<>""
+			TRAP CLOSE 
+			Fprf$="\TOBA\DBF\TERRENO\PERFILES\"+File$+".PRF"
+			CREATE FPrf$,A,PK,Dst,Cota
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","PERFILES") 
+		if File$<>""
+			trap use A
+			trap close
+			Fprf$="\TOBA\DBF\TERRENO\PERFILES\"+File$+".PRF"
+			OPEN FPrf$,A,PK,Dst,Cota
+		endif
+	endif	
+
+	rem Copiar
+	if M%=%* 
+		File:("COPIAR","PERFILES")
+		if file$<>""
+			a$="\TOBA\DBF\TERRENO\PERFILES\"+File0$+".PRF"
+			b$="\TOBA\DBF\TERRENO\PERFILES\"+File$+".PRF"
+			if a$=Fprf$
+				close
+			endif
+			copy a$,b$
+			TRAP OPEN Fprf$,A,PK,Dst,Cota
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","PERFILES")
+		If File$<>"" 
+			a$="\TOBA\DBF\TERRENO\PERFILES\"+File$+".PRF"
+			delete a$
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","PERFILES")
+		if File$<>""
+			a$="\TOBA\DBF\TERRENO\PERFILES\"+File0$+".PRF"
+			b$="\TOBA\DBF\TERRENO\PERFILES\"+File$+".PRF"
+			if a$=Fprf$
+				close
+			endif
+			rename a$,b$
+			if a$=Fprf$
+				Fprf$=b$
+			endif
+			TRAP OPEN Fprf$,A,PK,Dst,Cota
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+
+
+
+
+
+               
+ENDP
+
+PROC ReVisPrf:(PosINI%,PosFIN%)
+LOCAL i%,Fin%
+
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint mid$(Fprf$,28,len(Fprf$)-31)
+	gat 170,10
+	gprint "PK:";PKvis
+	gstyle 1
+
+	rem Control de cuanta informacion debe sacar
+	use A
+	first
+	If PosFIN%-PosINI%-PosFil%+1>16
+		Fin%=16
+	else
+		Fin%=PosFIN%-PosINI%-PosFil%+2
+	endif  
+
+	gAT 0,0: gbox 240,100                                                  
+	gat 90,10 :GPRINT "PERFILES"
+	gSTYLE 4                                      
+	gAT 1,18 :gPRINT " Pto     Dst         Cota         Pto     Dst         Cota       "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+
+	if PosINI%<>0 and PosFIN%<>0
+		position PosINI%+PosFil%-1
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			if i%<=8
+				gAT 5,(i%*10)+18 :gPRINT i%+PosFil%-1
+				gAT 25,(i%*10)+18 :gPRINT A.Dst
+				gAT 75,(i%*10)+18 :gPRINT A.Cota
+			else
+				gAT 130,((i%-8)*10)+18 :gPRINT i%+PosFil%-1
+				gAT 150,((i%-8)*10)+18 :gPRINT A.Dst
+				gAT 197,((i%-8)*10)+18 :gPRINT A.Cota
+			endif
+			next
+		ENDWH
+	endif
+
+
+ENDP
+                                                      
+PROC Rdatos:
+local D%,i%,Lista$(255)
+local PK,PTO
+local Est%,Pvis%,Est$(10),Pvis$(10)
+local m,i
+local Xe,Ye,Ze,X,Y,Z
+local AZI,DES
+local AZIpos,AZIper,DstAlPer
+local DSTant,COTAant
+local Dist,Cota
+
+	if Fbse$=""
+		giprint "­ Fichero de bases no seleccionado !"
+		return  
+	endif	
+	if Fplt$=""
+		giprint "­ Fichero de planta no seleccionado !"
+		return
+	else
+		Fplc$="\TOBA\DBF\PLANTA\CALC\"+Fplt$+".PLC"
+	endif	
+	
+
+	open Fbse$,C,Pto$,X,Y,Z,Etiquet$,Obs$,Sesion%,Est$
+	open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+
+
+	while 1
+		do
+			PK=PK+IntPer%
+			DINIT "A¥ADIR"
+			dfloat PK,"PK:",0,100000
+			D%=DIALOG
+			if D%=0
+				Use B
+				close
+				use C
+				close
+				return
+			endif
+		until int(PK/IntPer%)=PK/IntPer%
+
+		rem Calculo del numero de puntos anteriormente tomados en el PK seleccionado
+		use A
+		first
+		PTO=0
+		while eof=0
+			if A.PK=PK
+				PTO=PTO+1
+			endif
+			next
+		endwh
+	
+		if PTO>0
+			last
+			if PK=A.PK
+				dinit "­ ADVERTENCIA !"
+				dtext "","Este perfil ya contiene "+gen$(PTO,15)+" ptos."
+				dbuttons "Cancelar",27,"A¤adir",13
+				D%=dialog
+				if D%=0
+					continue             
+				endif
+				PTO=PTO+1
+				break
+			else
+				dinit "PERFIL PK:"+gen$(PK,15)
+				dtext "","Perfil anteriormente tomado"
+				dialog
+			endif
+		else
+			DSTant=0
+			PTO=1
+			break
+		endif
+	endwh
+
+
+	if Auto%<>3
+		rem Calculo de las Coord Xeje Yeje del PK
+		loadm "\TOBA\SISTEMA\OBRA.OPO"
+		OcalcXY:(PK)
+		unloadm "\TOBA\SISTEMA\OBRA.OPO"
+
+
+		rem Creacion del listado de bases aparecen en el dCHOICE
+		i%=1
+		Lista$=""
+		use C
+		first
+		while eof=0
+			Lista$=Lista$+C.Obs$+","
+			next
+		endwh
+		if Lista$<>""
+			Lista$=LEFT$(Lista$,LEN(Lista$)-1)
+		endif 
+	endif
+
+
+	while 1
+		if Auto%<>3
+			REM ESTACIONAMIENTO
+			do
+				dinit "ESTACIONAR"
+				if len(Lista$)<255
+					dchoice est%,"Estacion",Lista$
+					dchoice Pvis%,"Pto. Visado",Lista$
+				else
+					dedit est$,"Estacion:",10
+					dEDIT pVis$,"Pto. Visado:",5
+				endif
+				dfloat m,"Altura Aparato",0.01,99
+				dfloat i,"Altura Prisma",0.01,99
+				if Auto%=2 rem entrada manual
+					dfloat LH,"L.H:",0,400
+				endif
+				D%=dialog
+				if D%=0
+					use C
+					close
+					use B
+					close
+					return
+				endif
+			UNTIL est%<>Pvis% OR est$<>pVis$
+			if len(lista$)>255
+				first
+				est%=find (est$)
+				first
+				Pvis%=FIND(pVis$)
+			else
+				position est%
+				est$=C.Obs$
+				Position Pvis%
+				pVis$=C.Obs$
+			endif
+			position est%
+			Xe=C.X
+			Ye=C.Y
+	        Ze=C.Z
+	        position Pvis%
+	        X=C.X
+	        Y=C.Y
+	        Z=C.Z
+			if Auto%=1
+				RleerET:
+			endif
+				
+			rem Calculo de la desorientacion
+			IF Ye-Y=0
+				IF Xe<X 
+					AZI=100
+				ELSE 
+					AZI=300
+				ENDIF
+			ELSE 
+				AZI=ATAN((X-Xe)/(Y-Ye))
+			ENDIF
+	
+			IF Y<Ye
+				AZI=AZI+PI
+			ENDIF
+			IF AZI<0 
+				AZI=AZI+2*PI
+			ENDIF
+			IF AZI>(2*PI)
+				AZI=AZI-2*PI
+			ENDIF
+			AZI=(AZI*200)/PI
+	        DES=AZI-LH
+		endif		
+	
+		while 1
+			REM RUTINA DE LECTURA DE PUNTOS DE LOS PERFILES
+			if D%=290
+				break
+			endif
+
+			If D%=13	rem LEER PTO
+                if Auto%=2	rem entrada manual
+					dinit "PK="+gen$(PK,15)+"        "+"PTO="+gen$(PTO,15)
+                    dfloat Dist,"Distancia:",-999,999
+                    dfloat Cota,"Cota:",-9999,9999
+                    D%=dialog
+                    if D%=0
+						break
+                    endif
+					rem Calculo de cota para DST=0
+					if DSTant<0 and Dist>0 
+						A.PK=PK
+						A.Cota=(COTAant*Dist-DSTant*Cota)/(Dist-DSTant)
+						A.DST=0
+						append
+						giprint "Cota Eje Calculada"
+					endif        
+                    A.PK=PK
+                    A.Dst=Dist
+                    A.Cota=Cota
+                    PTO=PTO+1
+					DSTant=A.DST
+					COTAant=A.Cota
+					use A
+					append                   
+
+
+
+				else				
+					while 1
+						if Auto%=1	rem entrada automatica
+							RLeerET:
+						else
+							LH=0
+							LV=0
+							DST=0
+							dinit "PK="+gen$(PK,15)+"        "+"PTO="+gen$(PTO,15)
+							dfloat LH,"L.H:",0,400
+							dfloat LV,"L.V:",0,400
+							dfloat DST,"DST:",0.5,9999
+							D%=Dialog
+							if D%=0
+								break
+							endif
+						endif
+						AZI=LH+DES
+						if AZI>400
+							AZI=AZI-400
+						endif
+						if AZI<0
+							AZI=AZI+400
+						endif
+						X=Xe+DST*sin((AZI*PI)/200)
+						Y=Ye+DST*cos((AZI*PI)/200)
+						Z=Ze+DST/tan((LV*pi)/200)+m-i
+						X=val(fix$(X,3,15))
+						Y=val(fix$(Y,3,15))
+						Z=val(fix$(Z,3,15))
+							
+		
+						IF Yeje-Y=0
+							IF Xeje<X 
+								AZIpos=100
+							ELSE 
+								AZIpos=300
+								ENDIF
+						ELSE 
+							AZIpos=ATAN((X-Xeje)/(Y-Yeje))
+						ENDIF
+					
+						IF Y<Yeje
+							AZIpos=AZIpos+PI
+						ENDIF
+						IF AZI<0 
+							AZIpos=AZIpos+2*PI
+						ENDIF
+						IF AZIpos>(2*PI)
+							AZIpos=AZIpos-2*PI
+						ENDIF
+						AZIpos=(AZIpos*200)/PI
+		
+						if sin((AZIpos-AZIeje)*pi/200)<0
+							AZIper=AZIeje-100
+							DST=-sqr((Xeje-X)**2+(Yeje-Y)**2)
+						else
+							AZIper=AZIeje+100
+							DST=sqr((Xeje-X)**2+(Yeje-Y)**2)
+						endif
+	
+						if AZIper>400
+							AZIper=AZIper-400
+						endif
+						if AZIper<0
+							AZIper=AZIper+400
+						endif                                
+	
+						A.PK=PK 
+						A.Cota=Z
+						A.Cota=val(fix$(A.Cota,3,15))
+						DST=val(fix$(DST,3,15))
+						if DST<DSTant and DSTant<>0
+							dinit "­ ADVERTENCIA !"
+							dtext "","Dist.PTO < Dist.PTO Anterior"
+							dialog
+						else
+							break
+						endif
+					endwh
+					if D%=0
+						continue
+					endif
+	
+					REM Opcion de Posicionamiento
+					if Posicio%=1  
+						DstAlPer=DST*sin((AZIper*pi)/200-(AZIpos*pi)/200)
+						DstAlPer=val(fix$(DstAlPer,3,15))
+						dinit "POSICION    PK:"+gen$(PK,15)+" PTO:"+gen$(PTO,15)
+						if DstAlPer<-0.01
+							dtext "AVANZAR",gen$(ABS(DstAlPer),15)+" m"
+						elseif DstAlPer>0.01 					
+							dtext "RETROCEDER",gen$(DstAlPer,15)+" m"
+						else
+							dtext "","CORRECTA"
+						endif
+						dbuttons "Nueva Lectura",9,"O.K",13
+						D%=DIALOG
+						if D%=9
+							D%=13 	
+							Continue
+						endif
+					endif	
+	
+					rem Calculo de cota para DST=0
+					if DSTant<0 and DST>0 
+						A.PK=PK
+						A.Cota=(COTAant*DST-DSTant*A.Cota)/(DST-DSTant)
+						A.DST=0
+						append
+						giprint "Cota Eje Calculada"
+					endif        
+
+	                A.DST=DST
+	
+					DSTant=A.DST
+					COTAant=A.Cota
+					use A
+					append					
+					PTO=PTO+1
+				endif
+	        endif
+			
+			if D%=9		rem NUEVO PK
+				do
+					PK=PK+IntPer%
+					DINIT "A¥ADIR"
+					dfloat PK,"PK:",0,100000
+					D%=DIALOG
+					if D%=0
+						Use B
+						close
+						use C
+						close
+					endif
+				until int(PK/IntPer%)=PK/IntPer%
+
+				rem Calculo del numero de puntos anteriormente tomados en el PK seleccionado
+				use A
+				first
+				PTO=0
+				while eof=0
+					if A.PK=PK
+						PTO=PTO+1
+					endif
+					next
+				endwh
+
+				if PTO>0
+					last
+					if PK=A.PK
+						dinit "­ ADVERTENCIA !"
+						dtext "","Este perfil ya contiene "+gen$(PTO,15)+" ptos."
+						dbuttons "Cancelar",27,"A¤adir",13
+						D%=dialog
+						if D%=0
+							D%=9
+							continue
+						endif
+						PTO=PTO+1
+						break
+					else
+						dinit "PERFIL PK:"+gen$(PK,15)
+						dtext "","Perfil anteriormente tomado"
+						dialog
+						D%=9
+						continue
+					endif
+				else
+					PTO=1
+					DSTant=0
+					break
+				endif
+				
+				rem Calculo de las Coord Xeje Yeje del PK
+				loadm "\TOBA\SISTEMA\OBRA.OPO"
+				OcalcXY:(PK)
+				unloadm "\TOBA\SISTEMA\OBRA.OPO"
+
+			endif
+
+			dinit "PK="+gen$(PK,15)+"        "+"PTO="+gen$(PTO,15)
+			if Auto%=3
+				dbuttons "Nuevo PK",9,"Leer PTO",13
+			else
+				dbuttons "Estacionar",290,"Nuevo PK",9,"Leer PTO",13
+			endif
+			D%=Dialog
+
+			if D%=0
+				use B
+				close
+				use C
+				close
+				return
+			endif
+				
+	    endwh
+	endwh
+
+ENDP
+
+PROC RLeerET:
+LOCAL ret%,pbuf%,buf$(255),len%
+
+	trap lopen "TTY:A"
+	if err=-9
+		beep 10,300
+		giprint "­ Remote Link Activo !"
+		LH=0
+		LV=0
+		DST=0
+		pause 20
+		return
+	endif
+	Rrsset:(8,1,7,1,4,&0)
+	lprint chr$(67)+"067"+chr$(3)
+
+	pBuf%=addr(buf$)
+	len%=58
+	ret%=iow(-1,1,#uadd(pbuf%,1),len%)
+	pokeb pbuf%,len%
+
+	Lprint chr$(6)+"006"+chr$(3) 
+	lclose
+
+	if left$(buf$,4)=chr$(6)+"006"
+		if mid$(buf$,8,1)="<"	rem entrada de angulos
+			LV=val(mid$(buf$,9,7))/10000
+			LH=val(mid$(buf$,16,8))/10000
+			DST=0
+		else
+			LV=val(mid$(buf$,19,7))/10000
+			LH=val(mid$(buf$,27,7))/10000
+			DST=val(mid$(buf$,10,8))/1000
+		endif
+	else
+		beep 10,300
+		giprint "Imposible Leer"
+		LH=0
+		LV=0
+		DST=0
+		return
+	endif
+ENDP
+
+PROC Rcontrol:(M%,PosINI%,PosFIN%)
+	if M%=257 Rem Abajo
+		PosFil%=PosFil%+1
+	endif
+	if M%=256 Rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	IF M%=261 rem Abajo+Psion
+		PosFil%=PosFil%+16
+	endif
+	IF M%=260 rem Arriba+Psion
+		PosFil%=PosFil%-16
+	endif
+
+	rem Control de limites
+	If PosFil%>PosFIN%-PosINI%-14
+		PosFil%=PosFIN%-PosINI%-14
+	endif
+	if PosFil%<1
+		PosFil%=1
+	endif
+	
+ENDP
+
+PROC Rimport:
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(2,15)
+local D%
+local nPTOS,PK
+local DSTant,COTAant,PKant
+local IntPer
+
+	setpath "\TOBA\COM\TERRENO\PERFILES\"
+	DINIT "IMPORTAR PERFILES"
+	DFILE File$,"File",0
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+
+	ret%=IOOPEN(handle%,File$,$0420)
+	address%=ADDR(record$)
+
+	rem control de fichero *TER
+	ret%=IOREAD(handle%,address%+1,255)
+	POKEB address%,ret%
+	IF record$<>"*TER" AND Column%=0
+		dinit
+		dtext "","Fichero de perfiles incorrecto",0
+		dbuttons "Salir",27
+		dialog
+		return
+	endif
+
+
+	rem reinician el fichero de perfiles para poder acoger 
+	rem un nuevo fichero importado.
+	use A
+	close
+	delete Fprf$
+	CREATE FPrf$,A,PK,Dst,Cota
+
+
+	busy "Importando Perfiles",1
+
+	rem Manejo de la cadena de carazteres Record$
+	Rem	que equivale a una linea del fichero AscII
+	nPTOS=0
+
+	WHILE 1
+		ret%=IOREAD(handle%,address%+1,255)
+		IF ret%=-36 
+			BREAK 
+		ENDIF
+		POKEB address%,ret%  
+		
+		i%=0 :Column%=0 
+		Do
+			mm$=""
+			WHILE  i%<=LEN(record$)
+				i%=i%+1 
+				m$=MID$(record$,i%,1)
+				IF m$="," 
+					BREAK 
+				ENDIF
+				if m$<>" "
+					mm$=mm$+m$
+				endif
+			ENDWH
+			Column%=Column%+1 
+			Field$(Column%)=(mm$)
+			mm$=""
+
+
+			WHILE MID$(record$,i%,1)=" "
+			 	i%=i%+1
+			ENDWH
+		UNTIL Column%=2
+
+    	if nPTOS=0
+    		nPTOS=val(Field$(2))
+    		PK=val(Field$(1))
+    	else
+			rem Calculo de cota para DST=0
+			if DSTant<0 and val(Field$(1))>0 
+				A.PK=PK
+				A.Cota=(COTAant*val(Field$(1))-DSTant*val(Field$(2)))/(val(Field$(1))-DSTant)
+				A.Cota=val(Fix$(A.Cota,4,15))
+				A.DST=0
+				append
+			endif
+
+	   		nPTOS=nPTOS-1
+	   		A.PK=PK
+			A.DST=VAL(Field$(1))
+			A.Cota=vAL(Field$(2))
+
+			if A.PK<>PKant and pos>1
+				if A.PK-PKant<>IntPer and IntPer<>0
+					busy off
+					beep 10,300
+					dinit "­ ADVERTENCIA !"
+					dtext "","El intervalo entre perfiles"
+					dtext "","debe ser constante"
+					dialog
+					ret%=IOCLOSE(handle%)
+					use A
+					close
+					delete Fprf$
+					CREATE FPrf$,A,PK,Dst,Cota
+					return
+				endif
+				IntPer=A.PK-PKant
+			endif
+				
+			DSTant=A.DST
+			COTAant=A.Cota
+			PKant=A.PK
+			append
+    	endif
+
+	endwh
+
+	
+    IntPer%=IntPer
+	busy off
+	ret%=IOCLOSE(handle%)
+
+	
+	return
+
+ENDP
+
+PROC Rexport:
+LOCAL D%
+local PK,nPTOS
+
+	setpath "\TOBA\COM\TERRENO\PERFILES\"
+	DINIT "EXPORTAR PERFILES"
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"Reemplazar",13
+		D%=dialog
+		if D%=13
+			DELETE(File$)
+		else
+			return
+		endif
+	ENDIF
+
+	busy "Exportando Perfiles"
+	LOPEN File$
+	lprint "*TER"
+	use A
+	first
+	nPTOS=0
+	WHILE  eof=0
+		if nPTOS=0
+			PK=A.PK
+			while 1
+				if A.PK=PK
+					nPTOS=nPTOS+1
+					next
+				else
+					lprint PK;", ";nPTOS;" , 0 , 0"
+					position pos-nPTOS
+					break
+				endif
+			endwh
+		Endif
+		lprint A.Dst;" , ";
+		lprint A.Cota
+		next
+		nPTOS=nPTOS-1
+	endwh
+
+			
+	LCLOSE
+	busy off
+	giprint "Alzado Exportado",3
+
+
+ENDP
+
+PROC rrsset:(Baud%,Parity%,Data%,stop%,hand%,term&)
+local Frame%,srchar%(6),err%,dummy%
+
+	frame%=data%-5
+	if stop%=2
+		frame%=frame% or 16
+	endif
+	if Parity%
+		frame%=frame% or 32
+	endif
+	srchar%(1)=baud% or (baud%*256)
+	srchar%(2)=frame% or (parity%*256)
+	srchar%(3)=(hand% and 255) or $1100
+	srchar%(4)=$13
+	pokel addr(srchar%(5)),term&
+	err%=iow(-1,7,srchar%(1),dummy%)
+	if err%
+		raise err%
+	endif
+
+
+ENDP
+

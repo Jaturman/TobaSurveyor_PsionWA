@@ -1,0 +1,1414 @@
+
+PROC ALZmenu:
+LOCAL M%,i%,Al%,D%,Al&
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Falz$=D.Falz$
+	if Falz$<>""
+		open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+	endif	
+	use D
+	close
+	rem Comprueba si hay que abrir o crear un fichero de planta
+	if Falz$=""
+		giprint "­ No hay alzado seleccionado !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="ALZ"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Afile:(M%)
+		until File$<>"" 
+	endif
+
+	cls
+
+	Use A
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+
+		AeVisEnt:("ENTRADA EJE EN ALZADO")
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos de entrada"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=Amodif:(Al%)
+				AeVisEnt:("ENTRADA EJE EN ALZADO")
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						AControl:(M%,8,2,1,count)
+						AeVisEnt:("ENTRADA EJE EN ALZADO")
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+
+
+
+
+
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Acontrol:(M%,4,2,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/
+				MCARD "Datos","Calcular",%c,"Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				MCARD "Listar","Datos entrada",%e,"Vertices",%v,"Ptos intervalo fijo",%i
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			IF M%=%c :Acalc: :endif 	rem Calculo de las TE y Ts
+			if M%=%m 	rem Modificacion del alzado 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					CONTINUE
+				endif
+				Al%=Al&
+				Amodif:(Al%) 
+			endif	
+
+		rem Listados
+			if M%=%e :ALentrad: :endif	rem Entrada de Datos
+			if M%=%v :ALvertic: :endif	Rem Vertices		
+			if M%=%i :ALinterv: :endif  Rem Ptos. Calculados a intervalo cte.
+
+		rem Importar/Exportar AscII
+			if M%=%0 :Aimport: :endif
+			if M%=%1 :Aexport: :endif
+
+		rem Fichero
+			Afile:(M%)
+
+    	endif
+
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			D.Falz$=Falz$
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			use A : close
+			return
+		endif
+	endwh
+ENDP
+
+
+PROC AModif:(Al%)
+local Fin%,D%,i%,Ini$(3),PKv,CotaV,Pv,L,KV,Flecha
+local PKvAnt,CotaVant,PvSig rem Necesarias para el calculo del acuerdo
+local PKvRef,CotaVref,PvRef,Lref,KVref,FlechRef 	rem Copias necesarias 
+local Al$(15),Lant									rem para la actualizacion
+													rem del acuerdo anterior 
+													rem a la alineacion actual
+
+	position Al%
+	Al$="ALINEACION "+gen$(Al%,3)
+
+	rem Copias necesarias para el uso en dialogos
+	rem	y para comprobacion de la variacion de los valores junto con las ref.
+	PKv=A.PKv
+	CotaV=A.CotaV
+	Pv=A.Pv
+	L=A.L
+	KV=A.KV
+	Flecha=A.Flecha
+	
+	rem Copias de referencia
+	PKvRef=A.PKv
+	CotaVRef=A.CotaV
+	PvRef=A.Pv
+	LRef=A.L
+	KVRef=A.KV
+	FlechRef=A.Flecha
+
+	back
+	PKvAnt=A.PKv
+	position Al%
+	
+	
+	rem Dialogo 1
+	while 1
+		dinit Al$
+		dfloat PKv,"PK",0,99999
+		dfloat CotaV,"Cota",-9999,9999
+		if Al%>1
+			dfloat Pv,"Pendiente",-100,100
+		endif
+	    D%=dialog
+	    if D%=0
+	    	return D%
+    	endif
+		if PKv<PKvAnt
+ 			giprint "PK < PK anterior"
+ 		else
+	    	if Al%>count  
+	    		if (CotaV<>CotaVref and Pv=PvRef) or (CotaV=CotaVref and Pv<>PvRef)
+	    			break
+	    		else
+	    			CotaV=CotaVref
+	    			Pv=PvRef
+	    		endif
+	    	else
+		    	break
+		    endif
+	    endif
+	endwh
+		
+	
+    rem Dialogo 2
+	if Al%>1
+		if (PKv=PKvRef  and CotaV=CotaVref and Pv=PvRef and Al%<=count) or (Al%>count)
+			while 1 
+				dinit Al$
+				dfloat L,"Longitud",0,9999
+				dfloat KV,"KV",0,9999
+				dfloat Flecha,"Flecha",0,9999
+				D%=dialog
+			    if D%=0
+			    	return D%
+			    endif
+				if L=0 and KV=0 and Flecha=0
+					Dinit Al$
+					dtext "","Ultima Alineacion",0
+					dbuttons "Cancelar",27,"OK",13
+					D%=dialog
+					if D%=13 
+						break
+					endif
+				endif
+				if L<>Lref and KV=KVref and Flecha=FlechRef
+					break
+				endif
+				if L=Lref and KV<>KVref and Flecha=FlechRef
+					break
+				endif
+				if L=Lref and KV=KVref and Flecha<>FlechRef
+					break
+				endif
+			endwh
+		endif
+	endif
+
+busy "  . . . . . ."
+
+	rem Recogida de que datos se han introducido inicialmente.
+	Ini$=A.Ini$
+	if CotaV<>CotaVRef
+		Ini$="C"+right$(Ini$,1)
+	endif
+	If Pv<>PvRef 
+		Ini$="P"+right$(Ini$,1)
+	endif
+	
+    if L<>LRef
+    	Ini$=left$(Ini$,1)+"L"
+    endif
+	if KV<>KVref
+		Ini$=left$(Ini$,1)+"K"
+	endif
+	if Flecha<>FlechRef
+		Ini$=left$(Ini$,1)+"F"
+	endif
+	if Ini$=""
+		Ini$=A.Ini$
+	endif
+
+
+    A.Al%=Al%
+    A.Ini$=Ini$
+    A.PKv=PKv
+    A.CotaV=CotaV
+	A.Pv=Pv
+    A.L=L
+    A.KV=KV
+    A.Flecha=Flecha
+    if Al%>count
+    	append
+    else
+    	i%=0
+    	while i%<=count-Al%
+    		i%=i%+1
+    		update
+    		position Al%
+    	endwh
+    endif
+
+
+
+	rem Recalculo de los valores no modificados
+	if pos<count 
+		fin%=count-1
+	else 
+		fin%=Al%-1
+	endif
+
+		i%=0
+		position 1
+		PKvAnt=A.PKv
+		CotaVant=A.CotaV
+		position 2
+		while i%<Fin%
+			i%=i%+1
+		    if left$(A.Ini$,1)="C"
+		    	A.Pv=100*(A.CotaV-CotaVant)/(A.PKv-PKvAnt)
+		    	A.Pv=val(fix$(A.Pv,4,15))
+		    endif
+		    if Left$(A.Ini$,1)="P"
+		    	A.CotaV=CotaVant+A.Pv/100*(A.PKv-PKvAnt)
+		    	A.CotaV=val(fix$(A.CotaV,3,15))
+		    endif
+		    PKvAnt=A.PKv
+			CotaVant=A.CotaV
+			if Al%>count
+				append
+			else
+				update 
+				position 2
+			endif				
+		endwh
+		
+
+	if Al%>2 or pos<count
+	    i%=0
+	    position 2
+	    while i%<Fin%-1
+			i%=i%+1
+			next
+			PvSig=A.Pv
+			back
+	
+			A.Theta=PvSig-A.Pv
+			if A.Theta<>0
+				if right$(A.Ini$,1)="L" rem Longitud
+					A.KV=abs(A.L/(A.Theta/100))
+					A.KV=VAL(FIX$(A.KV,0,15))
+					A.Flecha=abs((A.KV*(A.Theta/100)**2)/8)
+					A.Flecha=VAL(FIX$(A.Flecha,3,15))
+				endif
+				if right$(A.Ini$,1)="K" rem Parametro
+					A.L=abs(A.KV*(A.Theta/100))
+					A.L=VAL(FIX$(A.L,3,15))
+					A.Flecha=abs((A.KV*(A.Theta/100)**2)/8)
+					A.Flecha=VAL(FIX$(A.Flecha,3,15))
+				endif
+				if right$(A.Ini$,1)="F" rem Flecha
+					A.KV=abs((8*A.Flecha)/(A.Theta/100)**2)
+					A.KV=VAL(FIX$(A.KV,1,15))
+					A.L=abs(A.KV*(A.Theta/100))
+					A.L=VAL(FIX$(A.L,3,15))
+				endif
+			else
+				busy off
+				beep 20,300
+				dinit "­ VERTICE "+gen$(pos,15)+" NULO !"
+				dtext "","  La pendiente es la misma"
+				dtext "","en dos alineaciones contiguas."
+				dialog
+			endif
+			if Al%>count
+				append
+			else
+			    update
+				position 2
+			endif
+		endwh
+		update
+    endif
+
+	rem Control de solapamiento
+	if Al%>1 or pos<count
+		first
+		PKvAnt=A.PKv
+		Lant=A.L
+		position 2
+		while eof=0
+			if A.PKv-A.L/2-Lant/2<PKvAnt
+				busy off
+				Beep 20,300
+				dinit "­ SOLAPAMIENTO !"
+				dtext "Vertices:",gen$(pos-1,7)+"-"+gen$(pos,7)
+				dtext "Longitud:",gen$(A.PKv-A.L/2-PKvAnt+Lant/2,7)+"m"
+				dialog
+			endif
+			PKvAnt=A.PKv
+			Lant=A.L
+			next
+		endwh
+	endif
+
+	busy off
+	if D%=0
+		D%=1
+	endif
+	return D%
+
+ENDP
+
+
+
+PROC ACalc:
+	local M%,i%,PvSig
+	use A
+	position 1
+	i%=0
+	while i%<count
+		next 
+		PvSig=A.Pv
+		back
+		i%=i%+1
+		A.PTe=A.Pv
+		A.PTs=PvSig
+		A.PKte=A.PKv-A.L/2
+		A.PKts=A.PKv+A.L/2
+		A.CotaTe=A.CotaV-A.PTe/100*A.L/2
+		A.CotaTs=A.CotaV+A.PTs/100*A.L/2
+		A.CotaTe=val(Fix$(A.CotaTe,3,15))
+		A.CotaTs=val(Fix$(A.CotaTs,3,15))
+		update
+		position 1
+	endwh
+	
+	PosFil%=1
+	PosCol%=1
+	AEVisCal:("EJE EN ALZADO CALCULADO")
+	do
+		M%=GET
+		IF M%>=256 and M%<=263
+			Use A :AControl:(M%,4,2,1,count)
+			AEVisCal:("EJE EN ALZADO CALCULADO")
+		ENDIF   
+	until M%=27
+	
+
+ENDP
+
+PROC AeVisCal:(Etiquet$)
+LOCAL i%,Fin%
+	use A
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint mid$(Falz$,18,len(Falz$)-21)
+	gstyle 1
+
+	rem Control de cuanta informacion debe sacar
+		If Count-1>4
+			Fin%=4
+		else
+			Fin%=count
+		endif
+
+
+
+	IF PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Al.     PK/Cota      Longi/Flecha       Kv/Theta                "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*20)+8 :gPRINT A.Al%
+			gAT 35,(i%*20)+8 :gPRINT A.PKv
+			gat 35,(i%*20)+18 :gprint A.CotaV
+			gAT 110,(i%*20)+8 :gPRINT A.L
+			gat 110,(i%*20)+18 :gprint A.Flecha
+			gAT 180,(i%*20)+8 :gPRINT A.KV
+			gat 180,(i%*20)+18 :gprint A.Theta
+			next
+		ENDWH
+	ENDIF
+
+
+	IF PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		GSTYLE 4
+		gAT 1,18 : gPRINT" Al.     PK:TE/TS      Cota:TE/TS     Pend:TE/TS             "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*20)+8 :gPRINT A.Al%
+			gAT 35,(i%*20)+8 :gPRINT A.PKte
+			gat 35,(i%*20)+18 :gprint A.PKts
+			gAT 105,(i%*20)+8 :gPRINT A.CotaTe
+			gat 105,(i%*20)+18 :gprint A.CotaTs
+			gAT 180,(i%*20)+8 :gPRINT A.Pte
+			gat 180,(i%*20)+18 :gprint A.Pts
+			next
+		ENDWH
+ENDIF
+
+ENDP
+
+PROC AeVisEnt:(Etiquet$)
+
+LOCAL i%,Fin%
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint mid$(Falz$,18,len(Falz$)-21)
+	gstyle 1
+	
+	rem Control de cuanta informacion debe sacar
+		If Count-1>8
+			Fin%=8
+		else
+			Fin%=count
+		endif
+
+
+
+	IF PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Al.        PK               Cota                   P(%)                "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		position PosFil%
+		i%=0
+		if Etiquet$="ENTRADA EJE EN ALZADO"
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*10)+18 :gPRINT A.Al%
+				gAT 35,(i%*10)+18 :gPRINT A.PKv
+				if left$(A.Ini$,1)="C"
+					gstyle 1
+				endif
+				gAT 100,(i%*10)+18 :gPRINT A.CotaV
+				gstyle 0
+				if left$(A.Ini$,1)="P"
+					gstyle 1
+				endif
+				gAT 180,(i%*10)+18 :gPRINT A.Pv
+				next
+				gstyle 0
+			ENDWH
+		else
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 35,(i%*10)+18 :gPRINT B.PK
+				gAT 100,(i%*10)+18 :gPRINT B.Cota
+				gAT 180,(i%*10)+18 :gPRINT B.P
+				next
+			ENDWH
+		endif
+	ENDIF
+
+
+	IF PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		GSTYLE 4
+		gAT 1,18 : gPRINT" Al.         L                   KV                   Flecha             "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1
+			gAT 5,(i%*10)+18 :gPRINT A.Al%
+			if right$(A.Ini$,1)="L"
+				gstyle 1
+			endif
+			gAT 35,(i%*10)+18 :gPRINT A.L
+			gstyle 0
+			if right$(A.Ini$,1)="K"
+				gstyle 1
+			endif
+			gAT 105,(i%*10)+18 :gPRINT A.KV
+			gstyle 0
+			if right$(A.Ini$,1)="F"
+				gstyle 1
+			endif
+			gAT 170,(i%*10)+18 :gPRINT A.Flecha
+			gstyle 0
+			next
+		ENDWH
+	ENDIF
+
+
+ENDP
+PROC AControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+PROC AImport:
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(6,15)
+local a$(50),D%
+local PKvAnt,CotaVant,PvSig
+
+	setpath "\TOBA\COM\ALZADO\"
+	dinit "IMPORTAR ALZADO"
+	dfile File$,"File",0
+	D%=dialog
+	if D%=0
+		return
+	endif
+
+		
+
+	ret%=IOOPEN(handle%,File$,$0420)
+	address%=ADDR(record$)
+
+	rem control de fichero *ALZ
+	ret%=IOREAD(handle%,address%+1,255)
+	POKEB address%,ret%
+	IF record$<>"*ALZ" AND Column%=0
+		busy off
+		a$="­ Fichero de Alzado Incorrecto !"
+		dinit
+		dtext "",a$,0
+		dbuttons "Salir",27
+		dialog
+		return
+	endif
+
+	rem reinicia el fichero de alzado para poder acoger
+	rem un nuevo fichero importado.
+	close
+	delete Falz$
+	CREATE FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+
+
+
+	busy "Importando Alzado..",1
+
+	rem Manejo de la cadena de carazteres Record$
+	Rem	que equivale a una linea del fichero AscII
+	WHILE 1
+		ret%=IOREAD(handle%,address%+1,255)
+		IF ret%=-36 
+			BREAK 
+		ENDIF
+		POKEB address%,ret%  
+		
+		i%=0 :Column%=0 
+		Do
+			mm$=""
+			WHILE  i%<=LEN(record$)
+				i%=i%+1 
+				m$=MID$(record$,i%,1)
+				IF m$="," 
+					BREAK 
+				ENDIF
+				if m$<>" "
+					mm$=mm$+m$
+				endif
+			ENDWH
+			Column%=Column%+1 
+			Field$(Column%)=(mm$)
+			mm$=""
+
+			i%=i%-1
+
+			WHILE MID$(record$,i%,1)=" "
+			 	i%=i%+1
+			ENDWH
+		UNTIL Column%=3
+		A.PKv=val(Field$(1))
+		if right$(Field$(2),1)="C"	rem Cota
+			A.CotaV=val( left$(Field$(2),(len(Field$(2))-1)))
+			A.Ini$="C"
+		endif		
+		if right$(Field$(2),1)="P" 	rem Pendiente
+			A.Pv=val(left$(Field$(2),(len(Field$(2))-1)))
+			A.Ini$="P"
+		endif	
+		if right$(Field$(3),1)="T"	rem Longitud del acuerdo
+			A.L=2*val(left$(Field$(3),(len(Field$(3))-1)))
+			A.Ini$=A.Ini$+"L"
+		endif		
+		if right$(Field$(3),1)="R" 	rem Parametro del acuerdo
+			A.KV=val(left$(Field$(3),(len(Field$(3))-1)))
+			A.Ini$=A.Ini$+"K"
+		endif		
+		if right$(Field$(3),1)="F"	rem Flecha del acuerdo
+			A.Flecha=val(left$(Field$(3),(len(Field$(3))-1)))
+			A.Ini$=A.Ini$+"F"
+		endif		
+		A.Al%=count+1
+		append	
+		A.CotaV=0
+		A.Pv=0
+		A.L=0
+		A.KV=0
+		A.Flecha=0
+	ENDWH
+
+
+	rem Calculo datos no entrados
+	i%=0
+	position 1
+	PKvAnt=A.PKv
+	CotaVant=A.CotaV
+	position 2
+	while i%<count-1
+		i%=i%+1
+	    if left$(A.Ini$,1)="C"
+	    	A.Pv=100*(A.CotaV-CotaVant)/(A.PKv-PKvAnt)
+	    	A.Pv=val(fix$(A.Pv,4,15))
+	    endif
+	    if Left$(A.Ini$,1)="P"
+	    	A.CotaV=CotaVant+A.Pv/100*(A.PKv-PKvAnt)
+	    	A.CotaV=val(fix$(A.CotaV,3,15))
+	    endif
+	    PKvAnt=A.PKv
+	    CotaVant=A.CotaV
+		update 
+		position 2
+	endwh
+
+	
+    i%=0
+    position 2
+    while i%<count-2
+		i%=i%+1
+		next
+		PvSig=A.Pv
+		back
+
+		A.Theta=PvSig-A.Pv
+		if right$(A.Ini$,1)="L" rem Longitud
+			A.KV=abs(A.L/(A.Theta/100))
+			A.KV=VAL(FIX$(A.KV,0,15))
+			A.Flecha=abs((A.KV*(A.Theta/100)**2)/8)
+			A.Flecha=VAL(FIX$(A.Flecha,3,15))
+		endif
+		if right$(A.Ini$,1)="K" rem Parametro
+			A.L=abs(A.KV*(A.Theta/100))
+			A.L=VAL(FIX$(A.L,3,15))
+			A.Flecha=abs((A.KV*(A.Theta/100)**2)/8)
+			A.Flecha=VAL(FIX$(A.Flecha,3,15))
+		endif
+		if right$(A.Ini$,1)="F" rem Flecha
+			A.KV=abs((8*A.Flecha)/(A.Theta/100)**2)
+			A.KV=VAL(FIX$(A.KV,1,15))
+			A.L=abs(A.KV*(A.Theta/100))
+			A.L=VAL(FIX$(A.L,3,15))
+		endif
+
+	    update
+	    position 2
+	endwh
+	update
+	ret%=IOCLOSE(handle%)
+	busy off
+	giprint"Eje en Alzado Importado"
+	return
+ENDP
+PROC AExport:
+local D%
+
+	setpath "\TOBA\COM\ALZADO\"
+	DINIT "EXPORTAR ALZADO"
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"Reemplazar",13
+		D%=dialog
+		if D%=13
+			DELETE(File$)
+		else
+			return
+		endif
+	ENDIF
+
+	busy "Exportando Alzado.."
+	LOPEN File$
+	lprint "*ALZ"
+	use A
+	first
+	WHILE  eof=0
+		lprint A.PKv;" , ";
+		if Left$(A.Ini$,1)="C"
+			lprint A.CotaV;"C , ";
+		endif
+		If left$(A.Ini$,1)="P"
+			lprint A.Pv;"P , ";
+		endif	
+		if right$(A.Ini$,1)="L"
+			lprint A.L/2;"T"
+		endif
+		if right$(A.Ini$,1)="K"
+			lprint A.KV;"R"
+		endif
+		if right$(A.Ini$,1)="F"
+			lprint A.Flecha;"F"
+		endif
+		next
+	endwh
+	LCLOSE
+	busy off
+	giprint "Alzado Exportado",3
+
+
+ENDP
+
+PROC ALentrad:
+local D%,M%
+	
+	If FAlz$=""
+		giprint "­ No hay fichero de alzado abierto !",3
+	    return
+	endif
+
+	DINIT "LISTADO DATOS ENTRADA"
+	DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=%p
+		Use A
+		Poscol%=1
+		Posfil%=1
+		AeVisEnt:("ENTRADA EJE EN ALZADO")	
+		do
+			M%=GET
+			IF M%>=256 and M%<=263
+			use A
+			AControl:(M%,4,2,1,count)
+			AeVisEnt:("ENTRADA EJE EN ALZADO")	
+			ENDIF   
+	    until M%=27
+		
+	elseif D%=%f
+		use A
+		AExpList:("DATOS DE ENTRADA")
+	endif
+
+ENDP
+
+PROC ALvertic:
+local PvSig,i%
+local D%,M%,PKini,PKfin,PKant,FilIni%,FilFin%
+
+	rem Calculo automatico de las tangentes si no estan calculadas anteriormente
+	USE A
+	first
+	If A.PKte=0
+		use A
+		position 1
+		i%=0
+		while i%<count
+			next 
+			PvSig=A.Pv
+			back
+			i%=i%+1
+			A.PTe=A.Pv
+			A.PTs=PvSig
+			A.PKte=A.PKv-A.L/2
+			A.PKts=A.PKv+A.L/2
+			A.CotaTe=A.CotaV-A.PTe/100*A.L/2
+			A.CotaTs=A.CotaV+A.PTs/100*A.L/2
+			A.CotaTe=val(Fix$(A.CotaTe,3,15))
+			A.CotaTs=val(Fix$(A.CotaTs,3,15))
+			update
+			position 1
+		endwh
+	endif
+	
+
+	use A
+	first
+	PKini=A.PKv
+	last
+	PKfin=A.PKv
+
+		DINIT "LISTADO DE VERTICES"
+		dfloat PKini,"PK inicial:",PKini,PKfin
+		dfloat PKfin,"PK final:",PKini,PKfin
+		DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+		D%=dialog
+
+	use A
+	first
+	while eof=0
+		if (PKini>PKant and PKini<A.PKv) or PKini=A.PKv
+			FilIni%=pos
+		endif                                 
+		if (PKfin>PKant and PKfin<A.PKv ) 
+			FilFin%=pos-1 
+		endif
+		if PKfin=A.PKv
+			FilFin%=POS 
+		endif
+		PKant=A.PKv
+		next
+	endwh
+
+rem Salida por Pantalla
+	if D%=%p
+		USE A
+		Poscol%=1
+		Posfil%=1
+		rem indicador de pagina (x/y)
+		gcls
+		gstyle 0
+		gat 220,10
+		gprint "1/2"
+		
+		AEVisCal:("VERTICES")
+
+		do
+			M%=GET
+			IF M%>=256 and M%<=263
+			uSE A
+			AControl:(M%,4,2,FilIni%,FilFin%)
+			rem indicador de pagina (x/y)
+			gcls
+			gstyle 0
+			gat 220,10
+			gprint gen$(PosCol%,2)+"/2"
+			
+			AEVisCal:("VERTICES")	
+			ENDIF   
+	    until M%=27
+	endif	
+
+
+rem Salida por Fichero
+	if D%=%f
+		use A
+		AExpList:("VERTICES")
+	endif
+
+ENDP
+PROC ALinterv:
+local D%,M%,i%,a$(100)
+local PKteant,Filini%,PKini,Fin
+local Interv,PKi,PKf,PKteSig
+local PvSig,SigP,SigC
+
+	rem Calculo automatico de las tangentes si no estan calculadas anteriormente
+	USE A
+	first
+	If A.PKte=0
+		use A
+		position 1
+		i%=0
+		while i%<count
+			next 
+			PvSig=A.Pv
+			back
+			i%=i%+1
+			A.PTe=A.Pv
+			A.PTs=PvSig
+			A.PKte=A.PKv-A.L/2
+			A.PKts=A.PKv+A.L/2
+			A.CotaTe=A.CotaV-A.PTe/100*A.L/2
+			A.CotaTs=A.CotaV+A.PTs/100*A.L/2
+			A.CotaTe=val(Fix$(A.CotaTe,3,15))
+			A.CotaTs=val(Fix$(A.CotaTs,3,15))
+			update
+			position 1
+		endwh
+	endif
+
+	Interv=20
+	use A
+	first
+	PKi=A.PKv
+	last
+	PKf=A.PKv
+	DINITs "LISTADO PTOS INTERVALO"
+	dfloat PKi,"PK inicial:",PKi,PKf
+	dfloat PKf,"PK final:",PKi,PKf
+	dfloat Interv,"Intervalo",0.01,10000
+	DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=0
+		return
+	endif
+    busy "Calculando ptos....",1
+	
+	first
+	while eof=0
+		if PKi>PKteAnt and PKi<=A.PKte
+			FilIni%=pos-1
+		endif
+		PKteAnt=A.PKte
+		next
+	endwh
+		
+
+rem CALCULO DE LOS PUNTOS A INTERVALO
+
+	if exist ("\TOBA\TEMP\ALinterv.$$$")
+		delete "\TOBA\TEMP\ALinterv.$$$"
+	endif
+	CREATE "\TOBA\TEMP\ALinterv.$$$",B,PK,Cota,P
+
+
+	rem Calculo del i% inicial y del Fin final
+	use A :position FilIni%
+	use B :first
+	i%=0
+	while 1
+		i%=i%+1
+		if Interv*i%>=PKi
+			break
+		endif
+	endwh
+	i%=i%-1
+	PKini=B.Pk
+	Fin=int(PKf-PKi)/Interv+i%+1
+	If PKi/Interv-int(PKi/Interv)
+		i%=i%-1
+	endif
+rem	if (PKi/Interv=int(PKi/Interv)) and (PKf/Interv<>int(PKf/Interv))
+		Fin=Fin-2
+rem	endif
+                      
+	use A
+	while i%<Fin
+		i%=i%+1
+
+		B.PK=Interv*i%
+		next
+		PKteSig=A.PKte
+		back		
+		if B.PK>=A.PKte and B.PK<PKteSig
+			if B.PK>A.PKts	or A.Kv=0 rem Rasante recta
+				B.Cota=A.CotaV+A.Pts/100*(B.PK-A.PKv)
+				B.P=A.Pts
+			else	
+				rem Determinacion del signo para calculo de la cota 		
+				if (A.Pte>0 and A.Pts>0) or (A.Pte<0 and A.Pts<0)
+					if Abs(A.Pts)>abs(A.Pte)
+						if A.Pts>0
+							SigC=1
+						else
+							SigC=-1
+						endif
+					else
+						if A.Pts>0
+							SigC=-1
+						else
+							SigC=1
+						endif
+					endif
+				else
+					if A.Pts>0
+						SigC=1
+					else
+						SigC=-1
+					endif
+				endif
+				rem Determinacion del signo para calculo de la pendiente
+				if (A.Pte<0 and A.Pts<0) or (A.Pte>0 and A.Pts>0)
+					if abs(A.Pte)>abs(A.Pts)
+						SigP=-1
+					else
+						SigP=1
+					endif
+					if B.PK>A.PKv and B.PK<A.PKts
+						SigP=SigP*-1
+					endif
+				else
+					SigP=-1
+				endif
+
+				
+				if B.PK<=A.PKv	rem Rasante curva de entrada
+					B.Cota=A.CotaTe+(A.Pte/100*(B.PK-A.PKte))+(SigC*(B.PK-A.PKte)**2/(2*A.KV))
+					If A.Pte<0
+						SigP=SigP*-1
+					endif
+					B.P=A.Pte+SigP*(B.PK-A.PKte)/A.KV*100
+				endif
+				
+				if B.PK>A.PKv and B.PK<=A.PKts	rem Rasante curva de salida
+					B.Cota=A.CotaTs-(A.Pts/100*(A.PKts-B.PK))+SigC*((B.PK-A.PKts)**2/(2*A.KV))
+					if A.Pts<0
+						SigP=SigP*-1
+					endif
+					B.P=A.Pts+SigP*(A.PKts-B.PK)/A.KV*100
+				endif
+			endif
+
+			B.Cota=val(fix$(B.Cota,3,15))	
+			B.P=val(fix$(B.P,4,15))	
+			use B
+			append
+			next
+		else
+			if PKteSig=0 and B.PK=A.PKv
+				B.Cota=A.CotaV
+				B.P=A.Pte
+				use B
+				append
+			endif
+			i%=i%-1
+			use A
+			next
+		endif
+	use A
+	endwh
+
+	busy off
+
+
+	rem Salida por pantalla
+	if D%=%p
+		use B
+		do
+			gcls
+			gstyle 0
+			gat 220,10
+			gprint "1/1"
+			AeVisEnt:("PTOS A INTERVALO CTE")	
+			M%=GET
+			IF M%>=256 and M%<=263
+				AControl:(M%,8,1,1,count-1)
+			ENDIF   
+	    until M%=27
+
+		
+	rem Salida por fichero
+	elseif D%=%f
+		a$="PUNTOS A INTERVALO FIJO: "+Falz$+"         "+datim$
+		use B
+		AExpList:("PTOS A INTERVALO CTE")
+	endif
+	use B
+	close
+	delete "\TOBA\TEMP\ALinterv.$$$"
+	use A
+
+	PosFil%=1
+ENDP
+
+PROC AExpList:(Name$)
+LOCAL a$(50),D%,ret%,record$(255),address%,handle%
+
+	setpath "\TOBA\LISTADOS\ALZADO\"
+	DINIT "EXPORTAR "+Name$
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+ 	
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+		D%=dialog
+		if D%=%r
+			delete File$
+			ret%=IOOPEN(handle%,File$,$0121)
+		endif
+		if D%=%a
+			ret%=IOOPEN(handle%,File$,$0123)
+		endif
+	else
+		ret%=IOOPEN(handle%,File$,$0121)
+	ENDIF
+
+	a$="Exportando list..."
+	busy a$
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(FAlz$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+
+	if Name$="DATOS DE ENTRADA"
+		record$="EJE EN ALZADO:  DATOS DE ENTRADA"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     N§     P.K.        Cota      p(%)        L         Kv      Flecha        "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",67)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use A
+		first
+	endif	
+			
+
+	if Name$="VERTICES"
+		record$="EJE EN ALZADO:  VERTICES"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="      N§      P.K.          TE       Cota TE    pE(%)    Longi.      Kv "
+        ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="              Cota          TS       Cota TS    pS(%)    Flecha    Theta(%)"      
+        ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",72)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use A
+		first
+	endif	
+
+
+	if Name$="PTOS A INTERVALO CTE"
+		record$="EJE EN ALZADO: PUNTOS A INTERVALO CONSTANTE"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     N§     P.K.        Cota      p(%)"
+        ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=rept$(" ",10)+rept$("=",30)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use B
+		first
+	endif
+
+	WHILE  eof=0
+		if Name$="DATOS DE ENTRADA"
+			use A
+			record$="     "+gen$(A.Al%,15)+rept$(" ",6-len(gen$(A.Al%,15)))
+			record$=record$+gen$(A.PKv,15)+rept$(" ",12-len(gen$(A.PKv,15)))
+			record$=record$+gen$(A.CotaV,15)+rept$(" ",11-len(gen$(A.CotaV,15)))
+			record$=record$+gen$(A.Pv,15)+rept$(" ",11-len(gen$(A.Pv,15)))
+			record$=record$+gen$(A.L,15)+rept$(" ",11-len(gen$(A.L,15)))
+			record$=record$+gen$(A.KV,15)+rept$(" ",9-len(gen$(A.KV,15)))
+			record$=record$+gen$(A.Flecha,15)
+			next
+		endif
+
+
+		if Name$="VERTICES"
+			use A
+			record$="      "+gen$(A.Al%,15)+rept$(" ",7-len(gen$(A.Al%,15)))
+			record$=record$+gen$(A.PKv,15)+rept$(" ",13-len(gen$(A.PKv,15)))
+			record$=record$+gen$(A.PKte,15)+rept$(" ",11-len(gen$(A.PKte,15)))
+			record$=record$+gen$(A.CotaTe,15)+rept$(" ",11-len(gen$(A.CotaTe,15)))
+			record$=record$+gen$(A.Pte,15)+rept$(" ",10-len(gen$(A.Pte,15)))
+			record$=record$+gen$(A.L,15)+rept$(" ",10-len(gen$(A.L,15)))
+			record$=record$+gen$(A.KV,15)
+	        ret%=IOWRITE(handle%,address%+1,len(record$))
+			record$=rept$(" ",13)+gen$(A.CotaV,15)+rept$(" ",13-len(gen$(A.CotaV,15)))
+			record$=record$+gen$(A.PKts,15)+rept$(" ",11-len(gen$(A.PKts,15)))
+			record$=record$+gen$(A.CotaTs,15)+rept$(" ",11-len(gen$(A.CotaTs,15)))
+			record$=record$+gen$(A.Pts,15)+rept$(" ",10-len(gen$(A.Pts,15)))
+			record$=record$+gen$(A.Flecha,15)+rept$(" ",10-len(gen$(A.Flecha,15)))
+			record$=record$+gen$(A.Theta,15)
+	        ret%=IOWRITE(handle%,address%+1,len(record$))
+	        record$=" "
+			next
+		endif
+
+
+		if Name$="PTOS A INTERVALO CTE"
+			use B
+			record$=rept$(" ",12)
+			record$=record$+gen$(B.PK,15)+rept$(" ",11-len(gen$(B.PK,15)))
+			record$=record$+gen$(B.Cota,15)+rept$(" ",11-len(gen$(B.Cota,15)))
+			record$=record$+gen$(B.P,15)
+			next
+		endif
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+	ENDWH
+
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+
+	ret%=IOCLOSE(handle%)
+	busy off
+	a$=lower$(Name$)+" exportados"
+	giprint a$,3
+	return
+
+ENDP
+PROC Afile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","ALZADO")
+		if File$<>""
+			TRAP CLOSE 
+			Falz$="\TOBA\DBF\ALZADO\"+File$+".ALZ"
+			CREATE FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","ALZADO") 
+		if File$<>""
+			trap use A
+			trap close
+			Falz$="\TOBA\DBF\ALZADO\"+File$+".ALZ"
+			open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+		endif
+	endif	
+
+	rem Copiar
+
+	if M%=%* 
+		File:("COPIAR","ALZADO")
+		if file$<>""
+			a$="\TOBA\DBF\ALZADO\"+File0$+".ALZ"
+			b$="\TOBA\DBF\ALZADO\"+File$+".ALZ"
+			if a$=Falz$
+				close
+			endif
+			copy a$,b$
+			trap open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","ALZADO")
+		If File$<>"" 
+			a$="\TOBA\DBF\ALZADO\"+File$+".ALZ"
+			delete a$
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","ALZADO")
+		if File$<>""
+			a$="\TOBA\DBF\PLANTA\ENTRADA\"+File0$+".ALZ"
+			b$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".ALZ"
+			if a$=Falz$
+				close
+			endif
+			rename a$,b$
+			if a$=Falz$
+				Falz$=b$
+			endif
+			trap open FAlz$,A,Ini$,Al%,PKv,CotaV,Pv,L,KV,Flecha,Theta,PKte,CotaTe,Pte,PKts,CotaTs,Pts
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+
+
+
+ENDP
+

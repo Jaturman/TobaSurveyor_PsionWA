@@ -1,0 +1,86 @@
+PROC inicio:
+	topcon:
+ENDP
+
+PROC TOPCON:
+LOCAL ret%,pbuf%,buf$(255),len%
+local lh,lv,dst
+
+	dinit "COMUNICACIONES PSION-TOPCON"
+	dbuttons "Iniciar",13
+	dialog
+
+
+
+while 1
+	trap lopen "TTY:A"
+	if err=-9
+		giprint "­ Remote Link Activo !"
+		LH=0
+		LV=0
+		DST=0
+		pause 20
+		return
+	endif
+	rsset:(8,1,7,1,4,&0)
+beep 10,300 
+	lprint chr$(67)+"067"+chr$(3)
+
+	pBuf%=addr(buf$)
+	len%=58
+	ret%=iow(-1,1,#uadd(pbuf%,1),len%)
+	pokeb pbuf%,len%
+
+	Lprint chr$(6)+"006"+chr$(3) 
+	lclose
+
+	if right$(buf$,4)=chr$(6)+"006"
+		if mid$(buf$,8,1)="<"	rem entrada de angulos
+			LV=val(mid$(buf$,9,7))/10000
+			LH=val(mid$(buf$,16,8))/10000
+			DST=0
+		else
+			LV=val(mid$(buf$,19,7))/10000
+			LH=val(mid$(buf$,27,7))/10000
+			DST=val(mid$(buf$,10,8))/1000
+		endif
+	else
+		giprint "Imposible Leer"
+		LH=0
+		LV=0
+		DST=0
+		pause 20
+		return
+	endif
+	dinit "TOPCON CTS-2"
+	DTEXT "LH:",GEN$(LH,15)
+	DTEXT "LV:",GEN$(LV,15)
+	DTEXT "DST:",GEN$(DST,15)
+	DIALOG
+endwh
+ENDP
+
+
+
+
+PROC rsset:(Baud%,Parity%,Data%,Stop%,Hand%,Term&)
+local Frame%,srchar%(6),err%,dummy%
+
+	frame%=data%-5
+	if stop%=2
+		frame%=frame% or 16
+	endif
+	if Parity%
+		frame%=frame% or 32
+	endif
+	srchar%(1)=baud% or (baud%*256)
+	srchar%(2)=frame% or (parity%*256)
+	srchar%(3)=(hand% and 255) or $1100
+	srchar%(4)=$13
+	pokel addr(srchar%(5)),term&
+	err%=iow(-1,7,srchar%(1),dummy%)
+	if err%
+		raise err%
+	endif
+
+ENDP

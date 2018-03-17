@@ -1,0 +1,2060 @@
+PROC TInicio:
+local i%,M%
+
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Ftrv$=D.Ftrv$
+	if Ftrv$<>""
+		Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+D.Ftrv$+".SEC"
+		Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+D.Ftrv$+".FIR"
+		Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+D.Ftrv$+".PLA"
+		Fper$="\TOBA\DBF\TRANSV\PERALTES\"+D.Ftrv$+".PER"
+		Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+D.Ftrv$+".CUN"
+		Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+D.Ftrv$+".TLD"
+		Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+D.Ftrv$+".TLT"
+		Fgeo$="\TOBA\DBF\TRANSV\GEO\"+D.Ftrv$+".GEO"
+	endif	
+	use D
+	close
+
+	rem Comprueba si hay que abrir o crear un fichero transversal.
+	if Ftrv$=""
+		giprint "­ No hay transversal seleccionado !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="TRA"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Tfile:(M%)
+		until File$<>"" 
+	endif
+
+	cls
+
+	TSeccTip:
+ENDP
+
+
+PROC TSeccTip:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Fsec$)
+			create Fsec$,A,PK,LongBI,PBI,LongBD,PBD
+		else
+			trap open Fsec$,A,PK,LongBI,PBI,LongBD,PBD
+		endif
+
+		use A		
+		TeVisSec:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodSec:(Al%)
+				TeVisSec:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisSec:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Firmes",%f,"Plataforma",%l,"Peraltes",-%p,"Cunetas",%c,"Taludes",-%t,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodSec:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"SECCION TIPO","S.Tipo","*SEC",5)
+			endif
+
+		rem Ver
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%t :TTaludT: :endif
+			if M%=%g :TGeo: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+	close 
+ENDP
+
+
+
+PROC Tfirme:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Ffir$)
+			create Ffir$,A,PK,EspesorF,TaludFI,TaludFD
+		else
+			trap open Ffir$,A,PK,EspesorF,TaludFI,TaludFD
+		endif
+
+		use A		
+		TeVisFir:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodFir:(Al%)
+				TeVisFir:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisFir:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Plataforma",%l,"Peraltes",-%p,"Cunetas",%c,"Taludes",-%t,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodFir:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"FIRME","Firme","*FIR",9)
+			endif
+
+		rem Ver
+			if M%=%s :TSeccTip: :endif
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%t :TTaludT: :endif
+			if M%=%g :TGeo: :endif 
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+
+	endwh
+
+	close 
+
+ENDP
+
+
+
+PROC Tplatafo:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Fpla$)
+			create Fpla$,A,PK,LongAI,LongAD,LongCI,LongCD
+			beep 10,300
+		else
+			trap open Fpla$,A,PK,LongAI,LongAD,LongCI,LongCD
+		endif
+		use A		
+		TeVisPlt:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodPlt:(Al%)
+				TeVisPlt:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisPlt:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Peraltes",-%p,"Cunetas",%c,"Taludes",-%t,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodPlt:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"PLATAFORMA","Plataf","*PLF",9)
+			endif
+
+		rem Ver
+			if M%=%s :TSeccTip: :endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%t :TTaludT: :endif
+			if M%=%g :TGeo: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+
+	endwh
+
+	close 
+
+ENDP
+
+
+
+PROC Tperalte:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Fsec$)
+			create Fper$,A,PK,P$
+		else
+			trap open Fper$,A,PK,P$
+		endif
+
+		use A		
+		TeVisPer:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodPer:(Al%)
+				TeVisPer:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisPer:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Plataforma",-%l,"Cunetas",%c,"Taludes",-%t,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodPer:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"PERALTE","Peralte","*PER",2)
+			endif
+
+		rem Ver
+			if M%=%s :TSeccTip: :Endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%t :TTaludT: :endif
+			if M%=%g :TGeo: :endif 
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+	close 
+
+ENDP
+
+
+
+PROC TCuneta:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Fcun$)
+			create Fcun$,A,H1,V1,H2,V2,H3,V3,H4,V4
+		else
+			trap open Fcun$,A,H1,V1,H2,V2,H3,V3,H4,V4
+		endif
+
+		use A		
+		TeVisCun:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodCun:(Al%)
+				TeVisCun:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,2,1,count)
+						TeVisCun:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,2,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Plataforma",%l,"Peraltes",-%p,"Taludes",-%t,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Tipo.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodCun:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"CUNETA","Cuneta","*CUN",8)
+			endif
+
+		rem Ver
+			if M%=%S :TSeccTip: :endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%t :TTaludT: :endif
+			if M%=%g :TGeo: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+	close 
+
+ENDP
+
+
+
+PROC TTaludD:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Ftld$)
+			create Ftld$,A,PK,DTalI,DTCI,DTalD,DTCD
+		else
+			trap open Ftld$,A,PK,DTalI,DTCI,DTalD,DTCD
+		endif
+
+		use A		
+		TeVisTld:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodTld:(Al%)
+				TeVisTld:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisTld:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		if M%=259
+			TTaludT:
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Plataforma",%l,"Peraltes",-%p,"Cunetas",-%c,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodTld:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"TALUD DESMONTE","Talud","*TALD",10)
+			endif
+
+		rem Ver
+			IF M%=%s :TSeccTip: :endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%g :TGeo: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+ENDP
+
+
+
+PROC TTaludT:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Ftlt$)
+			create Ftlt$,A,PK,TTalI,TTalD
+		else
+			trap open Ftlt$,A,PK,TTalI,TTalD
+		endif
+
+		use A		
+		TeVisTlt:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodTlt:(Al%)
+				TeVisTlt:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisTlt:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		if M%=258
+			TTaludD:
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Plataforma",%l,"Peraltes",-%p,"Cunetas",-%c,"Geologia",%g
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodTlt:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"TALUD TERRAPLEN","Talud","*TALT",9)
+			endif
+
+		rem Ver
+			IF M%=%s :TSeccTip: :endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%g :TGeo: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+ENDP
+
+
+
+PROC TGeo:
+local M%,Al%,D%,Al&
+
+	trap close
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+		if not exist (Fgeo$)
+			create Fgeo$,A,PK,Tvegetal
+		else
+			trap open Fgeo$,A,PK,Tvegetal
+		endif
+
+		use A		
+		TeVisGeo:
+
+		rem Entrada automatica de datos de entrada si estos no existen
+		if count=0
+			giprint "No hay datos"
+		
+			Al%=0
+			while 1
+				Al%=count+1
+				D%=TmodGeo:(Al%)
+				TeVisGeo:
+				if D%=0 or D%=13
+					break
+				endif
+				do
+					M%=get
+					if M%>=256 and M%<=263
+						TControl:(M%,8,1,1,count)
+						TeVisGeo:
+					endif
+				until M%<256 or M%>263
+			endwh
+		endif
+
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Tcontrol:(M%,8,1,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/                      
+				mcard "Datos","Modificar",%m
+				if count=0
+					mcard "AscII","Importar",%0
+				else
+					mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				mcard "Ver","Seccion Tipo",%s,"Firmes",%f,"Plataforma",%l,"Peraltes",-%p,"Cunetas",%c,"Taludes",%t
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m 	rem Modificacion del transversal 
+				dINITs 
+				dposition 1,1
+				dlong Al&,"MODIFICAR Al.N§:",1,count+1
+				D%=dialog
+				if D%=0
+					return
+				endif
+				Al%=Al&
+				TmodSec:(Al%) 
+			endif	
+
+		rem Importar/Exportar AscII
+			if M%=%0 or M%=%1
+				TAscII:(M%,"GEOLOGIA","Geo","*GEO",5)
+			endif
+
+		rem Ver
+			if M%=%s :TSeccTip: :endif
+			IF M%=%f :Tfirme: :ENDIF
+			if M%=%l :TPlatafo: :endif
+			if M%=%p :TPeralte: :endif
+			if M%=%c :TCuneta: :endif
+			if M%=%t :TTaludT: :endif
+
+		rem Fichero
+			close
+			Tfile:(M%)
+    	endif
+
+
+		rem Salida de transversal
+		if M%=27
+			TFin:
+		endif
+	endwh
+
+	close 
+
+ENDP
+
+
+
+PROC TeVisSec:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 80,10 :GPRINT "SECCION TIPO"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK        Berma I    P.B.I      Berma D    P.B.D     "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 76,(i%*10)+18 :gPRINT A.LongBI
+		gAT 120,(i%*10)+18 :gPRINT A.PBI
+		gAT 162,(i%*10)+18 :gPRINT A.LongBD
+		gAT 212,(i%*10)+18 :gPRINT A.PBD
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TeVisFir:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 100,10 :GPRINT "FIRME"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK           T.F.Iz        T.F.De        E.Firme     "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 82,(i%*10)+18 :gPRINT A.TaludFI
+		gAT 135,(i%*10)+18 :gPRINT A.TaludFD
+		gAT 190,(i%*10)+18 :gPRINT A.EspesorF
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TeVisPlt:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 80,10 :GPRINT "PLATAFORMA"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK        Ar.Iz.    Ca.Iz.       Ca.De.    Ar.De.    "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 76,(i%*10)+18 :gPRINT A.LongAI
+		gAT 115,(i%*10)+18 :gPRINT A.LongCI
+		gAT 162,(i%*10)+18 :gPRINT A.LongCD
+		gAT 205,(i%*10)+18 :gPRINT A.LongAD
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TeVisPer:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 95,10 :GPRINT "PERALTE"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK          Peralte                                            "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 85,(i%*10)+18 :gPRINT A.P$
+		next
+       ENDWH
+
+ENDP
+
+
+
+PROC TeVisCun:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,2,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	if PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 95,10 :GPRINT "CUNETA"
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Tipo        H1             V1             H2             V2        "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*10)+18 :gPRINT pos
+			gAT 45,(i%*10)+18 :gPRINT A.H1
+			gAT 98,(i%*10)+18 :gPRINT A.V1
+			gAT 147,(i%*10)+18 :gPRINT A.H2
+			gAT 200,(i%*10)+18 :gPRINT A.V2
+			next
+		ENDWH
+	endif
+
+	if PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 95,10 :GPRINT "CUNETA"
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Tipo        H3             V3             H4             V4        "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		position PosFil%
+		i%=0
+		WHILE i%<Fin%
+			i%=i%+1 
+			gAT 5,(i%*10)+18 :gPRINT pos
+			gAT 45,(i%*10)+18 :gPRINT A.H3
+			gAT 98,(i%*10)+18 :gPRINT A.V3
+			gAT 147,(i%*10)+18 :gPRINT A.H4
+			gAT 200,(i%*10)+18 :gPRINT A.V4
+			next
+		ENDWH
+	endif
+
+ENDP
+
+
+
+PROC TeVisTld:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 80,10 :GPRINT "TALUD DESMONTE"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK       Talud Iz  Tipo C.I Talud De  Tipo C.D  "
+	gSTYLE 0
+	gat 220,10 :gprint"2/2"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 76,(i%*10)+18 :gPRINT A.DTalI
+		gAT 120,(i%*10)+18 :gPRINT A.DTCI
+		gAT 162,(i%*10)+18 :gPRINT A.DTalD
+		gAT 212,(i%*10)+18 :gPRINT A.DTCD
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TeVisTlt:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 80,10 :GPRINT "TALUD TERRAPLEN"
+	gSTYLE 4
+	
+	gAT 1,18 :gPRINT " N§.     PK          Talud Izq       Talud Dch                     "
+	gSTYLE 0
+	gat 220,10 :gprint"1/2"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 95,(i%*10)+18 :gPRINT A.TTalI
+		gAT 170,(i%*10)+18 :gPRINT A.TTalD
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TeVisGeo:
+LOCAL i%,Fin%,M%
+
+	Use A :TControl:(M%,8,1,1,count)
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gstyle 0
+	gat 3,10
+	gprint Ftrv$
+	gSTYLE 1
+
+	rem Control de cuanta informacion debe sacar
+	If Count-1>8
+		Fin%=8
+	else
+		Fin%=count
+	endif
+
+	gAT 0,0: gbox 240,100
+	gat 95,10 :GPRINT "GEOLOGIA"
+	gSTYLE 4
+	gAT 1,18 :gPRINT " N§.     PK          T.Veg.                                            "
+	gSTYLE 0
+	gat 220,10 :gprint"1/1"
+	position PosFil%
+	i%=0
+	WHILE i%<Fin%
+		i%=i%+1 
+		gAT 5,(i%*10)+18 :gPRINT pos
+		gAT 30,(i%*10)+18 :gPRINT A.PK
+		gAT 85,(i%*10)+18 :gPRINT A.Tvegetal
+		next
+	ENDWH
+
+ENDP
+
+
+
+PROC TModSec:(Al%)
+local PK,LongBI,PBI,LongBD,PBD,i%,D%
+	position Al%
+	
+    PK=A.PK
+    LongBI=A.LongBI
+    PBI=A.PBI
+    LongBD=A.LongBD
+    PBD=A.PBD
+	dinit "SECCION TIPO: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat LongBI,"Berma Izq:",0,99
+	dfloat PBI,"Pend. B.Izq:",-325,325
+	dfloat LongBD,"Berma Dch:",0,99
+	dfloat PBD,"Pend. B.Dch:",-325,325
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+    A.PK=PK
+    A.LongBI=LongBI
+    A.PBI=PBI
+    A.LongBD=LongBD
+    A.PBD=PBD
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	Return 1
+ENDP
+
+
+
+PROC TModFir:(Al%)
+local PK,EspesorF,TaludFI,TaludFD,D%,i% 
+	position Al%
+	
+    PK=A.PK
+    EspesorF=A.EspesorF
+    TaludFI=A.TaludFI
+    TaludFD=A.TaludFD
+	dinit "FIRME: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat EspesorF,"Espesor Firme:",0,99
+	dfloat TaludFI,"Talud Firme Izq.:",0.01,99
+	dfloat TaludFD,"Talud Firme Drc:",0.01,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+    A.PK=PK
+    A.EspesorF=EspesorF
+    A.TaludFI=TaludFI
+    A.TaludFD=TaludFD
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+    return 1
+ENDP
+
+
+
+PROC TModPlt:(Al%)
+local PK,LongAI,LongAD,LongCI,LongCD,D%,i%
+	position Al%
+	
+    PK=A.PK
+    LongAI=A.LongAI
+    LongAD=A.LongAD
+    LongCI=A.LongCI
+    LongCD=A.LongCD
+	dinit "PLATAFORMA: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat LongAI,"Arcen Izq.:",0,99
+	dfloat LongAD,"Arcen Drc.:",0,99
+	dfloat LongCI,"Calzada Izq.:",0,99
+	dfloat LongCD,"Calzada Drc.:",0,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+    A.PK=PK
+    A.LongAI=LongAI
+    A.LongAD=LongAD
+    A.LongCI=LongCI
+    A.LongCD=LongCD
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	return 1
+
+ENDP
+
+
+
+PROC TModPer:(Al%)
+local PK,P$(7),D%,i%
+	position Al%
+	
+    PK=A.PK
+    P$=A.P$
+	dinit ": n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dedit P$,"Peralte:"
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+    A.PK=PK
+    A.P$=P$
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	return 1
+
+
+ENDP
+
+
+
+PROC TModCun:(Al%)
+local H1,V1,H2,V2,H3,V3,H4,V4
+local D%,i%
+
+	position Al%
+	
+	H1=A.H1
+	V1=A.V1
+	H2=A.H2
+	V2=A.V2
+	H3=A.H3
+	V3=A.V3
+	H4=A.H4
+	V4=A.V4
+	dinit "CUNETA: Tipo n§ "+gen$(Al%,7)+"   (1/2)"
+	dfloat H1,"H1:",0,99
+	dfloat V1,"V1:",-99,99
+	dfloat H2,"H2:",0,99
+	dfloat V2,"V2:",-99,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+	dinit "CUNETA: Tipo n§ "+gen$(Al%,7)+"   (2/2)"
+	dfloat H3,"H3:",0,99
+	dfloat V3,"V3:",-99,99
+	dfloat H4,"H4:",0,99
+	dfloat V4,"V4:",-99,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+
+	A.H1=H1
+	A.V1=V1
+	A.H2=H2
+	A.V2=V2
+	A.H3=H3
+	A.V3=V3
+	A.H4=H4
+	A.V4=V4
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	Return 1
+
+ENDP
+
+
+
+PROC TModTld:(Al%)
+local PK,DTalI,DTCI,DTalD,DTCD,D%,i%
+	position Al%
+
+	PK=A.PK   
+	DTalI=A.DTalI
+	DTCI=A.DTCI
+	DTalD=A.DTalD
+	DTCD=A.DTCD
+	dinit "TALUD DESMONTE: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat DTalI,"Talud Iz.:",0.001,32.767
+	dfloat DTCI,"Tipo Cuneta Iz.:",1,99
+	dfloat DTalD,"Talud De:",0.001,32.767
+	dfloat DTCD,"Tipo Cuneta De.:",1,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+	A.PK=PK
+	A.DTalI=DTalI
+	A.DTCI=DTCI
+	A.DTalD=DTalD
+	A.DTCD=DTCD
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	Return 1
+
+ENDP
+
+
+
+PROC TModTlt:(Al%)
+local PK,TTalI,TTalD,D%,i%
+
+	position Al%
+	
+    PK=A.PK
+    TTalI=A.TTalI
+    TTalD=A.TTalD
+	dinit "TALUD TERRAPLEN: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat TTalI,"Talud Iz.:",0.001,32.767
+	dfloat TTalD,"Talud De.:",0.001,32.767
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+
+    A.PK=PK
+    A.TTalI=TTalI
+    A.TTalD=TTalD
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	Return 1
+
+ENDP
+
+
+
+PROC TModGeo:(Al%)
+local PK,Tvegetal,D%,i%
+	position Al%
+	
+    PK=A.PK
+	Tvegetal=A.Tvegetal
+	dinit "GEOLOGIA: n§ "+gen$(Al%,7)
+	dfloat PK,"PK:",0,99999
+	dfloat Tvegetal,"Tierra Vegetal:",0,99
+	D%=dialog
+	if D%=0
+		return D%
+	endif
+    A.PK=PK
+    A.Tvegetal=Tvegetal
+
+	i%=0
+	if Al%>count
+		append
+	else
+		while i%<=Count-Al%
+			i%=i%+1
+			update
+			position Al%
+		endwh
+	endif
+	Return 1
+
+ENDP
+
+
+PROC Tfile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","TRANSVERSAL")
+		if File$<>""                     
+			Ftrv$=File$
+			Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+File$+".SEC"
+			create Fsec$,A,PK,LongBI,PBI,LongBD,PBD
+			close
+			Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+File$+".FIR"
+			create Ffir$,A,PK,EspesorF,TaludFI,TaludFD
+			close
+			Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+File$+".PLA"
+			create Fpla$,A,PK,LongAI,LongAD,LongCI,LongCD
+			close
+			Fper$="\TOBA\DBF\TRANSV\PERALTES\"+File$+".PER"
+			create Fper$,A,PK,P$
+			close
+			Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+File$+".CUN"
+			create Fcun$,A,H1,V1,H2,V2,H3,V3,H4,V4
+			close
+			Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLT"
+			create Ftlt$,A,PK,TtalI,TtalD
+			close
+			Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLD"
+			create Ftld$,A,PK,DtalI,DTCI,DtalD,DTCD
+			close
+			Fgeo$="\TOBA\DBF\TRANSV\GEO\"+File$+".GEO"
+			create Fgeo$,A,PK,Tvegetal
+			close
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","TRANSVERSAL") 
+		if File$<>""
+			Ftrv$=File$
+			Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+File$+".SEC"
+			Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+File$+".FIR"
+			Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+File$+".PLA"
+			Fper$="\TOBA\DBF\TRANSV\PERALTES\"+File$+".PER"
+			Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+File$+".CUN"
+			Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLD"
+			Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLT"
+			Fgeo$="\TOBA\DBF\TRANSV\GEO\"+File$+".GEO"
+		endif
+	endif	
+
+	rem Copiar
+
+	if M%=%* 
+		File:("COPIAR","TRANSVERSAL")
+		if file$<>""
+			a$="\TOBA\DBF\TRANSV\SECCTIP\"+File0$+".SEC"
+			b$="\TOBA\DBF\TRANSV\SECCTIP\"+File$+".SEC"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\FIRMES\"+File0$+".FIR"
+			b$="\TOBA\DBF\TRANSV\FIRMES\"+File$+".FIR"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\PLATAFOR\"+File0$+".PLA"
+			b$="\TOBA\DBF\TRANSV\PLATAFOR\"+File$+".PLA"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\PERALTES\"+File0$+".PER"
+			b$="\TOBA\DBF\TRANSV\PERALTES\"+File$+".PER"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\CUNETAS\"+File0$+".CUN"
+			b$="\TOBA\DBF\TRANSV\CUNETAS\"+File$+".CUN"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\TALUDES\"+File0$+".TLD"
+			b$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLD"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\TALUDES\"+File0$+".TLT"
+			b$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLT"
+			copy a$,b$
+			a$="\TOBA\DBF\TRANSV\GEO\"+File0$+".GEO"
+			b$="\TOBA\DBF\TRANSV\GEO\"+File$+".GEO"
+			copy a$,b$
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","TRANSVERSAL")
+		If File$<>"" 
+			Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+File$+".SEC"
+			Ffir$="\TOBA\DBF\TRANSV\FIRMES\"+File$+".FIR"
+			Fpla$="\TOBA\DBF\TRANSV\PLATAFOR\"+File$+".PLA"
+			Fper$="\TOBA\DBF\TRANSV\PERALTES\"+File$+".PER"
+			Fcun$="\TOBA\DBF\TRANSV\CUNETAS\"+File$+".CUN"
+			Ftld$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLD"
+			Ftlt$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLT"
+			Fgeo$="\TOBA\DBF\TRANSV\GEO\"+File$+".GEO"
+			delete Fsec$
+			delete Ffir$
+			delete Fpla$
+			delete Fper$
+			delete Fcun$
+			delete Ftld$
+			delete Ftlt$
+			delete Fgeo$
+			Fsec$="\TOBA\DBF\TRANSV\SECCTIP\"+Ftrv$+".SEC"
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","TRANSVERSAL")
+		if File$<>""
+			a$="\TOBA\DBF\TRANSV\SECCTIP\"+File0$+".SEC"
+			b$="\TOBA\DBF\TRANSV\SECCTIP\"+File$+".SEC"
+			rename a$,b$
+			if a$=Fsec$
+				Ftrv$=File$
+				Fsec$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\FIRMES\"+File0$+".FIR"
+			b$="\TOBA\DBF\TRANSV\FIRMES\"+File$+".FIR"
+			rename a$,b$
+			if a$=Ffir$
+				Ffir$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\PLATAFOR\"+File0$+".PLA"
+			b$="\TOBA\DBF\TRANSV\PLATAFOR\"+File$+".PLA"
+			rename a$,b$
+			if a$=Fpla$
+				Fpla$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\PERALTES\"+File0$+".PER"
+			b$="\TOBA\DBF\TRANSV\PERALTES\"+File$+".PER"
+			rename a$,b$
+			if a$=Fper$
+				Fper$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\CUNETAS\"+File0$+".CUN"
+			b$="\TOBA\DBF\TRANSV\CUNETAS\"+File$+".CUN"
+			rename a$,b$
+			if a$=Fcun$
+				Fcun$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\TALUDES\"+File0$+".TLD"
+			b$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLD"
+			rename a$,b$
+			if a$=Ftld$
+				Ftld$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\TALUDES\"+File0$+".TLT"
+			b$="\TOBA\DBF\TRANSV\TALUDES\"+File$+".TLT"
+			rename a$,b$
+			if a$=Ftlt$
+				Ftlt$=b$
+			endif
+			a$="\TOBA\DBF\TRANSV\GEO\"+File0$+".GEO"
+			b$="\TOBA\DBF\TRANSV\GEO\"+File$+".GEO"
+			if a$=Fgeo$
+				Fgeo$=b$
+			endif
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+	Ftrv$=mid$(Fsec$,26,len(Fsec$)-29)
+
+endp
+
+
+
+PROC TAscII:(M%,Element$,Ele$,Cabeza$,MaxCol%)
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(10,15)
+local a$(50),D%
+
+	setpath "\TOBA\COM\TRANSV\"
+
+	if M%=%0 rem Importar
+		dinit "IMPORTAR "+Element$
+		dfile File$,"File",0
+		D%=dialog
+		if D%=0
+			return
+		endif
+        
+		ret%=IOOPEN(handle%,File$,$0420)
+		address%=ADDR(record$)
+
+		rem control de fichero *Cabeza$
+		ret%=IOREAD(handle%,address%+1,255)
+		POKEB address%,ret%
+		IF record$<>Cabeza$ AND Column%=0
+			a$="­ Fichero "+lower$(Element$)+" Incorrecto !"
+			dinit
+			dtext "",a$,0
+			dbuttons "Salir",27
+			dialog
+			return
+		endif
+
+		busy "Importando "+Ele$,1
+
+		rem reinicia el fichero para poder acoger un nuevo fichero importado.
+		close
+		if Element$="SECCION TIPO"
+			delete Fsec$
+			CREATE Fsec$,A,PK,LongBI,PBI,LongBD,PBD
+		endif
+		if Element$="FIRME"
+			delete Ffir$
+			create Ffir$,A,PK,EspesorF,TaludFI,TaludFD
+		endif
+		if Element$="PLATAFORMA"
+			delete Fpla$
+			create Fpla$,A,PK,LongAI,LongAD,LongCI,LongCD
+		endif
+		if Element$="PERALTE"
+			delete Fper$
+			create Fper$,A,PK,P$
+		endif
+		if Element$="CUNETA"
+			delete Fcun$
+			create Fcun$,A,H1,V1,H2,V2,H3,V3,H4,V4
+		endif
+		if Element$="TALUD TERRAPLEN"
+			delete Ftlt$                                          
+			create Ftlt$,A,PK,TTalI,TTalD
+		endif
+		if Element$="TALUD DESMONTE"
+			delete Ftld$
+			create Ftld$,A,PK,DTalI,DTCI,DTalD,DTCD
+		endif
+		if Element$="GEOLOGIA"
+			delete Fgeo$
+			create Fgeo$,A,PK,Tvegetal
+		endif
+
+
+		rem Manejo de la cadena de carazteres Record$
+		Rem	que equivale a una linea del fichero AscII
+		WHILE 1
+			ret%=IOREAD(handle%,address%+1,255)
+			IF ret%=-36 
+				BREAK 
+			ENDIF
+			POKEB address%,ret%  
+		
+			i%=0 :Column%=0 
+			Do
+				mm$=""
+				WHILE  i%<=LEN(record$)
+					i%=i%+1 
+					m$=MID$(record$,i%,1)
+					IF m$="," 
+						BREAK 
+					ENDIF
+					if m$<>" "
+						mm$=mm$+m$
+					endif
+				ENDWH
+				Column%=Column%+1 
+				Field$(Column%)=(mm$)
+				mm$=""
+	
+				i%=i%-1
+	
+				WHILE MID$(record$,i%,1)=" "
+				 	i%=i%+1
+					ENDWH
+			UNTIL Column%=MaxCol%
+
+			if Element$="SECCION TIPO"
+				A.PK=val(Field$(1))
+				A.LongBI=val(Field$(2))
+				A.PBI=val(Field$(3))
+				A.LongBD=val(Field$(4))
+				A.PBD=val(Field$(5))
+			endif
+
+			if Element$="FIRME"
+				A.PK=Val(Field$(1))
+				A.TaludFI=Val(Field$(6))
+				A.TaludFD=Val(Field$(7))
+				A.EspesorF=Val(Field$(9))
+			endif
+
+			if Element$="PLATAFORMA"
+				A.PK=Val(Field$(1))
+				A.LongAI=Val(Field$(2)) rem LongAI
+				A.LongCI=Val(Field$(3)) rem LongCI
+				A.LongCD=Val(Field$(8)) rem LongCD
+				A.LongAD=Val(Field$(9)) rem LongAD
+			endif
+
+			if Element$="PERALTE"
+				A.PK=Val(Field$(1))
+				A.P$=Field$(2)
+			endif
+
+			if Element$="CUNETA"
+				A.H1=Val(Field$(1))
+				A.V1=Val(Field$(2))
+				A.H2=Val(Field$(3))
+				A.V2=Val(Field$(4))
+				A.H3=Val(Field$(5))
+				A.V3=Val(Field$(6))
+				A.H4=Val(Field$(7))
+				A.V4=Val(Field$(8))
+			endif
+
+			if Element$="TALUD DESMONTE"
+				A.PK=Val(Field$(1))
+				A.DtalI=Val(Field$(3))
+				A.DTCI=Val(Field$(5))
+				A.DtalD=Val(Field$(8))
+				A.DTCD=Val(Field$(10))
+			endif
+			
+			if Element$="TALUD TERRAPLEN"
+				A.PK=Val(Field$(1))
+				A.TTalI=Val(Field$(5))
+				A.TTalD=Val(Field$(9))
+			endif			
+
+			if Element$="GEOLOGIA"
+				A.PK=Val(Field$(1))
+				A.Tvegetal=Val(Field$(2))
+			endif	
+
+			append	
+		ENDWH
+		busy off
+		giprint "Importacion finalizada",3
+	endif
+
+	if M%=%1 rem Exportar
+		DINIT "EXPORTAR "+Element$
+		dFILE File$,"File",1
+		D%=DIALOG
+		if D%=0
+			return
+		endif
+		IF EXIST(File$)
+			dINIT File$
+			dtext "","­ Fichero Existente !",2
+			dbuttons "Cancelar",27,"Reemplazar",13
+			D%=dialog
+			if D%=13
+				DELETE(File$)
+			else
+				return
+			endif
+		ENDIF
+	
+		busy "Exportando "+Ele$
+		LOPEN File$
+		lprint Cabeza$
+		use A
+		first
+		
+		WHILE  eof=0
+			if Element$="SECCION TIPO"
+				lprint A.PK;" , ";
+				lprint A.LongBI;" , ";
+				lprint A.PBI;" , ";
+				lprint A.LongBD;" , ";
+				lprint A.PBD;" , 0 , 0 , 0 , 0"
+			endif
+
+			if Element$="FIRME"
+				lprint A.PK;" , 1 , 0 , 0 , 0 , ";
+				lprint A.TaludFI;" , ";
+				lprint A.TaludFD;" , 0 , ";
+				lprint A.EspesorF
+			endif
+
+			if Element$="PLATAFORMA"
+				lprint A.PK;" , ";
+				lprint A.LongAI;" , ";
+				lprint A.LongCI;" , 0 , 0 , 0 , 0 , ";
+				lprint A.LongCD;" , ";
+				lprint A.LongAD
+			endif
+
+			if Element$="PERALTE"
+				lprint A.PK;" , ";
+				lprint A.P$
+			endif
+
+			if Element$="CUNETA"
+				Lprint A.H1;" , ";   
+				Lprint A.V1;" , ";
+				Lprint A.H2;" , ";
+				Lprint A.V2;" , ";
+				Lprint A.H3;" , ";
+				Lprint A.V3;" , ";
+				Lprint A.H4;" , ";
+				Lprint A.V4
+			endif
+
+			if Element$="TALUD DESMONTE"
+				Lprint A.PK;" , 0 , ";
+				Lprint A.DtalI;" , 0 , ";
+				Lprint A.DTCI;" , 0 , 0 , ";
+				Lprint A.DtalD;" , 0 , ";
+				Lprint A.DTCD;" , 0 ";
+			endif
+			
+			if Element$="TALUD TERRAPLEN"
+				Lprint A.PK;" , 0 , 0 , 0 , ";
+				Lprint A.TtalI;" , 0 , 0 , 0 , ";
+				Lprint A.TtalD
+			endif			
+
+			if Element$="GEOLOGIA"
+				lprint A.PK;" , ";
+				Lprint A.Tvegetal;" , 0"
+			endif	
+
+			next
+		endwh
+		LCLOSE
+		busy off
+		giprint "Exportacion finalizada",3
+	endif
+ENDP
+
+
+PROC TControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+
+
+PROC TFin:
+	rem Control de registro del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	D.Ftrv$=Ftrv$
+	if count=0
+		append
+	else
+		update
+	ENDIF
+	close
+				
+	use A : close
+	menu:
+
+ENDP

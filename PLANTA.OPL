@@ -1,0 +1,1672 @@
+PROC PLTmEnt: rem Inicio Modulo Planta
+LOCAL M%,i%
+	                      
+	rem control de abertura del ultimo fichero abierto en la ultima sesion
+	OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+	Fplt$=D.Fplt$
+
+
+	if Fplt$<>""
+		Fple$="\TOBA\DBF\PLANTA\ENTRADA\"+Fplt$+".PLE"
+		OPEN Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2 
+		Fplc$="\TOBA\DBF\PLANTA\CALC\"+Fplt$+".PLC"
+		open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+	endif
+	use D
+	close
+
+	rem Comprueba si hay que abrir o crear un fichero de planta
+	if Fple$=""
+		giprint "­ No hay planta seleccionada !"
+		open "\TOBA\SISTEMA\FILE.MON",D,File$,obs$,Datime$,IntPer%
+		i%=0
+		first
+		while eof=0
+			if right$(D.File$,3)="PLA"
+				i%=i%+1
+			endif
+			next
+		endwh
+		close
+		if i%=0
+			M%=%+
+		else
+			M%=%.
+		endif
+		do
+			Pfile:(M%)
+		until File$<>""
+	endif
+
+ 	cls
+
+	PosFil%=1
+	PosCol%=1
+
+	while 1
+
+		PeVisEnt:("ENTRADA EJE EN PLANTA")
+		M%=Get
+		if M%>=256 and M%<=263
+			use A
+			Pcontrol:(M%,4,2,1,count)
+		endif
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/
+				MCARD "Datos","Calcular",%c,"Modificar",%m
+				MCARD "Listar","Datos entrada",%e,"Ptos singulares",%s,"Ptos intervalo fijo",%i
+				MCARD "Ver","Eje en planta calculado",%v
+				M%=MENU 
+			endif
+			if M% and $200 
+				M%=M%-$200
+			endif
+
+		rem Datos
+			if M%=%m :PmodEnt: :endif	Rem Modificacion de datos
+			if M%=%c :PcalcEnt: :endif	rem Calculo de los datos de entrada
+
+		rem Listados
+			if M%=%e :PLEntrad: :endif	rem Entrada de Datos
+			if M%=%s :PLSingul: :endif	Rem Puntos singulares Calculados		
+			if M%=%i :PLInterv: :endif  Rem Ptos. Calculados a intervalo cte.
+
+		rem Ver
+			if M%=%v rem Opcion datos calculados
+				PLTmCal:
+				PosFil%=1
+				PosCol%=1
+			endif
+
+		rem Fichero
+			Pfile:(M%)
+
+    	endif
+
+
+		rem Control de registro del ultimo fichero abierto en la ultima sesion
+		if M%=27
+			OPEN "\TOBA\SISTEMA\TOBA.INI",D,Fplt$,Falz$,Ftrv$,Fprf$,Ftaq$,Fbse$,Fobr$,Auto%,utm%,Ses%,Posicio%
+			D.Fplt$=Fplt$
+			if count=0
+				append
+			else
+				update
+			ENDIF
+			close
+					
+			use A : close
+			Use B : close
+			return
+		endif
+	endwh
+ENDP
+
+
+
+
+PROC PeVisEnt:(Etiquet$)
+LOCAL i%,Fin%
+	use A
+	POSITION 1
+	gCLS
+	gFONT 5   
+	gSTYLE 0
+	gat 3,10
+	gprint Fplt$
+	gstyle 1
+
+	rem Control de cuanta informacion debe sacar
+		If Count-1>4
+			Fin%=4
+		else
+			Fin%=count
+		endif
+
+
+
+	IF PosCol%=1
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		gSTYLE 4
+		gAT 1,18 :gPRINT " Al.           Radio         Ae       As                               "
+		gSTYLE 0
+		gat 220,10 :gprint"1/2"
+		if count<>0
+			position PosFil%
+			i%=0
+			WHILE i%<Fin%
+				i%=i%+1 
+				gAT 5,(i%*20)+8 :gPRINT A.Al%
+				gAT 50,(i%*20)+8 :gPRINT A.Radio
+				gAT 100,(i%*20)+8 :gPRINT A.Ae
+				gAT 150,(i%*20)+8 :gPRINT A.As
+				next
+			ENDWH
+		endif
+	ENDIF
+
+
+	IF PosCol%=2
+		gAT 0,0: gbox 240,100
+		gat 60,10 :GPRINT Etiquet$
+		GSTYLE 4
+		gAT 1,18 : gPRINT " Al.               X1/Y1                       X2/Y2                   "
+		gSTYLE 0
+		gat 220,10 :gprint"2/2"
+		if count<>0
+			position PosFil%
+			i%=0
+			WHILE i%<Fin%
+				i%=i%+1
+				gAT 5,(i%*20)+8 :gPRINT A.Al%
+				gAT 50,(i%*20)+8 :gPRINT A.X1
+				gAT 50,(i%*20)+18 :gPRINT A.Y1
+				gAT 150,(i%*20)+8 :gPRINT A.X2
+				gAT 150,(i%*20)+18 :gPRINT A.Y2
+				next
+			ENDWH
+		endif
+	ENDIF
+ENDP
+
+
+
+PROC PLTmCal:
+local M%
+
+	Use B
+ 	Poscol%=1
+	Posfil%=1
+	rem indicador de pagina (x/y)
+	gcls
+	gstyle 0
+	gfont 5
+	gat 220,10
+	gprint "1/3" 
+	gat 3,10
+	gprint Fplt$
+	PeVisCal:("EJE EN PLANTA CALCULADO",8,1,count-1,"B")
+
+	do
+		M%=GET
+		IF M%>=256 and M%<=263
+			Use B :PControl:(M%,8,3,1,count)
+			rem indicador de pagina (x/y)
+			gcls
+			gstyle 0
+			gat 220,10
+			gprint gen$(PosCol%,2)+"/3"
+			PeVisCal:("EJE EN PLANTA CALCULADO",8,1,count-1,"B")
+		ENDIF
+
+		IF M%=290 or (M% and $200)
+			if M%=290
+				MINIT
+				MCARD "Fichero","Nuevo",%+,"Abrir",-%.,"Copiar",%*,"Suprimir",%-,"Renombrar",%/
+				if count=0
+					Mcard "AscII","Importar",%0
+				else
+					Mcard "AscII","Importar",%0,"Exportar",%1
+				endif
+				MCARD "Listar","Datos entrada",%e,"Ptos singulares",%s,"Ptos intervalo fijo",%i
+				MCARD "Ver","Entrada eje en planta",%v
+				M%=MENU
+			endif
+			if M% and $200 
+					M%=M%-$200
+			endif	
+
+		rem Leer/Escribir Fichero AscII
+            if M%=%0 :Pimport: :endif
+			If M%=%1 :Pexport: :endif
+			
+			rem Opcion Datos de entrada
+			if M%=%v 
+				PosFil%=1
+				PosCol%=1
+				Return
+			endif
+			
+		rem Listados
+			if M%=%e or M%=%s or M%=%i
+				if M%=%e :PLEntrad: :endif	rem Entrada de Datos
+				if M%=%s :PLSingul: :endif	Rem Puntos singulares Calculados		
+				if M%=%i :PLInterv: :endif  Rem Ptos. Calculados a intervalo cte.
+				use B
+				gcls
+				gstyle 0
+				gat 220,10
+				gprint gen$(PosCol%,2)+"/3"
+				PeVisCal:("EJE EN PLANTA CALCULADO",8,1,count-1,"B")
+			endif
+			
+		rem Fichero
+			If M%=%+ or M%=%. or M%=%* or M%=%- or M%=%/
+				Pfile:(M%)
+				use B
+				gcls
+				gstyle 0
+				gat 220,10
+				gprint gen$(PosCol%,2)+"/3"
+				PeVisCal:("EJE EN PLANTA CALCULADO",8,1,count-1,"B")
+			endif
+
+		endif
+   
+	until  M%=27
+
+ENDP
+
+PROC PeVisCal:(Etiquet$,Fpp%,FilIni%,FilFin%,Canal$) rem Canal$ indica que use estoy usando
+LOCAL i%,Fin%
+		POSITION 1
+		gFONT 5   
+		gSTYLE 0
+		gat 3,10
+		gprint Fplt$
+		gstyle 1
+
+
+rem Control de cuanta informacion debe sacar 
+		if (FilFin%-FilIni%+1)>Fpp%
+			Fin%=Fpp%
+		else
+			Fin%=(FilFin%-FilIni%+1)
+		endif
+
+		IF PosCol%=1
+
+			gAT 0,0: gbox 240,100
+			gat 60,10 :gprint Etiquet$
+			gSTYLE 4
+			gAT 1,18 :gPRINT " PK                       Longitud                                     "
+			if count<>0
+				gSTYLE 0
+				position FilIni%+PosFil%-1
+				i%=0
+				WHILE i%<=Fin%
+					i%=i%+1 
+  					gAT 5,(i%*10)+18 :gPRINT B.PK  
+					gAT 85,(i%*10)+18 :gPRINT B.Long 
+					Next
+				ENDWH
+			endif
+		ENDIF
+
+		IF PosCol%=2
+			gAT 0,0: gbox 240,100             
+			gat 60,10 :gprint Etiquet$
+			gSTYLE 4
+			gAT 1,18 :gPRINT " PK                 Coord.X              Coord.Y                   "
+			if count<>0
+				gSTYLE 0
+				POSITION FilIni%+PosFil%-1
+				i%=0
+				WHILE i%<=Fin%
+					i%=i%+1
+					if Canal$="B" 
+						gAT 5,(i%*10)+18 :gPRINT B.PK
+						gAT 60,(i%*10)+18 :gPRINT B.X
+						gAT 140,(i%*10)+18 :gPRINT B.Y
+					endif
+					If Canal$="C"
+						gAT 5,(i%*10)+18 :gPRINT C.PK
+						gAT 60,(i%*10)+18 :gPRINT C.X
+						gAT 140,(i%*10)+18 :gPRINT C.Y
+					endif
+					next
+				ENDWH
+			endif
+		ENDIF
+
+
+		IF PosCol%=3
+			GAT 0,0: gbox 240,100
+			gat 60,10 :gprint Etiquet$
+			GSTYLE 4
+			gAT 1,18 : gPRINT " PK                 Azimut         Radio       Parametro          "
+			if count<>0
+				gSTYLE 0
+				POSITION FilIni%+PosFil%-1
+				i%=0
+				WHILE i%<=Fin%
+					i%=i%+1
+					if Canal$="B"
+						gAT 5,(i%*10)+18 :gPRINT B.PK
+						gAT 60,(i%*10)+18 :gPRINT B.Azimut
+						gAT 122,(i%*10)+18 :gPRINT B.Radio
+						gAT 184,(i%*10)+18 :gPRINT B.A
+					endif
+					if Canal$="C"
+						gAT 5,(i%*10)+18 :gPRINT C.PK
+						gAT 60,(i%*10)+18 :gPRINT C.Azimut
+						gAT 122,(i%*10)+18 :gPRINT C.Radio
+						gAT 184,(i%*10)+18 :gPRINT C.A
+					endif
+					next
+				ENDWH
+			endif
+		endif
+
+		IF PosCol%=4
+			gAT 0,0: gbox 240,100             
+			gat 60,10 :gprint Etiquet$
+			gSTYLE 4
+			gAT 1,18 :gPRINT " PK                 X Centro             Y Centro                  "
+			if count<>0
+				gSTYLE 0
+				POSITION FilIni%+PosFil%-1
+				i%=0
+				WHILE i%<Fin%
+					i%=i%+1 
+					gAT 5,(i%*10)+18 :gPRINT B.PK
+					gAT 60,(i%*10)+18 :gPRINT B.Xc
+					gAT 140,(i%*10)+18 :gPRINT B.Yc
+					next
+				ENDWH
+			endif
+		ENDIF
+		
+
+ENDP
+
+
+
+
+PROC PLEntrad:
+local D%,M%
+	
+	use A
+	If Count=0
+		giprint "­ No hay Datos de Entrada !"
+		return
+	endif
+
+	DINIT "LISTADO DATOS ENTRADA"
+	DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=%p
+		Use A
+		Poscol%=1
+		Posfil%=1
+		PeVisEnt:("DATOS DE ENTRADA")	
+		do
+			M%=GET
+			IF M%>=256 and M%<=263
+			use A
+			PControl:(M%,4,2,1,count)
+			PeVisEnt:("DATOS DE ENTRADA")	
+			ENDIF   
+	    until M%=27
+		
+	elseif D%=%f
+		use A
+		PExpList:("DATOS DE ENTRADA")
+	endif
+ENDP
+
+
+PROC PLSingul:
+
+local D%,M%,PKini,PKfin,PKant,FilIni%,FilFin%
+
+	If Fple$="" or Fplc$=""
+		giprint "­ No hay planta seleccionada !"
+		return
+	endif
+
+	use B
+	if count=0
+		giprint "­ Planta no calculada !",3
+	    return
+	endif
+	
+
+	use B
+	first
+	PKini=B.PK
+	last
+	PKfin=B.PK
+
+		DINIT "LISTADO PTOS SINGULARES"
+		dfloat PKini,"PK inicial:",PKini,PKfin
+		dfloat PKfin,"PK final:",PKini,PKfin
+		DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+		D%=dialog
+
+	use B
+	first
+	while eof=0
+		if (PKini>PKant and PKini<B.PK) or PKini=B.PK
+			FilIni%=pos
+		endif                                 
+		if (PKfin>PKant and PKfin<B.PK ) 
+			FilFin%=pos-1 
+		endif
+		if PKfin=B.PK
+			FilFin%=POS 
+		endif
+		PKant=B.PK
+		next
+	endwh
+
+rem Salida por Pantalla
+	if D%=%p
+		USE B
+		Poscol%=1
+		Posfil%=1
+		rem indicador de pagina (x/y)
+		gcls
+		gstyle 0
+		gfont 5
+		gat 220,10
+		gprint "1/4"
+		PeVisCal:("PUNTOS SINGULARES",8,FilIni%,FilFin%,"B")
+
+		do
+			M%=GET
+			IF M%>=256 and M%<=263
+			uSE B
+			PControl:(M%,8,4,FilIni%,FilFin%)
+			rem indicador de pagina (x/y)
+			gcls
+			gstyle 0
+			gat 220,10
+			gprint gen$(PosCol%,2)+"/4"
+			PeVisCal:("PUNTOS SINGULARES",8,FilIni%,FilFin%,"B")	
+			ENDIF   
+	    until M%=27
+	endif	
+
+
+rem Salida por Fichero
+	if D%=%f
+		use B
+		PExpList:("PUNTOS SINGULARES")
+	endif
+ENDP
+
+
+
+
+
+PROC PLInterv:
+local D%,M%,i%,Fin,a$(100)
+local Interv,PKi,PKf,PKant,FilIni%
+local Rini,Lini,TaoIni,XFini,YFini,PKini,AziIni,Xini,Yini	rem Clotoide
+local Rfin,Lfin,TaoFin,XFfin,YFfin					          rem Clotoide
+local iX,iY,Alfa,AZI                        rem Clotoide
+
+	If Fple$="" or Fplc$=""
+		giprint "­ No hay planta seleccionada !"
+		return
+	endif
+
+	use B
+	if count=0
+		giprint "­ Planta no calculada !",3
+	    return
+	endif
+
+	Interv=20
+	use B
+	first
+	PKi=B.PK
+	last
+	PKf=B.PK
+	DINITs "LISTADO PTOS INTERVALO"
+	dfloat PKi,"PK inicial:",PKi,PKf
+	dfloat PKf,"PK final:",PKi,PKf
+	dfloat Interv,"Intervalo",0.01,10000
+	DBUTTONS "Cancelar",27,"Pantalla",%p,"Fichero",%f
+	D%=dialog
+	if D%=0
+		return
+	endif
+    busy "Calculando ptos....",1
+	use B
+	first
+	while eof=0
+		if (PKi>PKant and PKi<B.PK) or (PKi=B.PK )
+			FilIni%=pos-1
+		endif
+		PKant=B.PK
+		next
+	endwh
+	
+rem CALCULO DE LOS PUNTOS A INTERVALO
+
+	if exist ("\TOBA\TEMP\PLinterv.$$$")
+		delete "\TOBA\TEMP\PLinterv.$$$"
+	endif
+	CREATE "\TOBA\TEMP\PLinterv.$$$",C,Element$,PK,X,Y,Azimut,Radio,A
+
+
+
+
+
+REM CALCULO 
+	use B :position FilIni%
+	use C :first
+	rem Calculo del i% inicial
+	i%=0
+	while 1
+		i%=i%+1
+		If Interv*i%>=PKi
+			break
+		endif
+	endwh
+	i%=i%-1
+	PKini=B.PK
+	Fin=int(PKf-PKi)/Interv+i%+1
+	if PKi/Interv=int(PKi/Interv)
+		i%=i%-1	
+	endif
+	if (PKi/Interv=int(PKi/Interv)) and (PKf/Interv<>int(PKf/Interv))
+		Fin=Fin-1	
+	endif
+
+	use B
+	while i%<Fin
+		i%=i%+1
+		C.PK=Interv*i%
+		if C.PK>PKini and C.PK<B.PK
+		else
+			rem Lectura de los valores del punto inicial del elemento.
+			PKini=B.PK
+			Rini=B.Radio
+			AziIni=B.Azimut
+			Xini=B.X
+			Yini=B.Y
+			use B
+			next
+		endif
+			Lfin=C.PK-PKini 
+			if B.A<>0
+				C.Element$="CLOTOIDE"
+rem Calculo dentro de la clotoide
+
+				C.A=B.A
+				C.Radio=B.Radio
+
+	
+				rem calculo valores iniciales
+				If Rini<>0
+					Lini=B.A**2/abs(Rini)
+					TaoIni=200*(Lini/(2*abs(Rini)))/PI
+					XFini=Lini-Lini**5/(10*(2*ABS(Rini)*Lini)**2) + Lini**9/(216*(2*ABS(Rini)*Lini)**4) - Lini**13/(9360*(2*abs(Rini)*Lini)**6)
+					YFini=Lini**3/(3*(2*ABS(Rini)*Lini))-Lini**7/(42*(2*ABS(Rini)*Lini)**3)+Lini**11/(1320*(2*ABS(Rini)*Lini)**5)-Lini**15/(75600*(2*abs(Rini)*Lini)**7)
+				else
+					Lini=0
+					XFini=0
+					YFini=0
+					TaoIni=0
+				endif
+
+				rem Calculo de L 
+				rem Se abre a Circulo
+				if (abs(Rini)<abs(B.Radio)) and (Rini<>0) 
+					Lfin=B.PK-C.PK+(B.A**2/abs(B.Radio))
+				endif
+				rem Se abre a Recta
+				if B.Radio=0    
+					Lfin=B.PK-C.PK
+				endif
+				rem Se cierra desde circulo
+				if (abs(Rini)>abs(B.Radio)) and (B.Radio<>0)
+					Lfin=C.PK-PKini+(B.A**2/abs(Rini))				
+				endif
+				rem Se cierra desde recta
+				If Rini=0				
+					Lfin=C.PK-PKini 
+				endif
+			
+	        	rem calculo de valores finales
+				Rfin=B.A**2/Lfin
+				TaoFin=200*(Lfin/(2*abs(Rfin)))/PI
+				XFfin=Lfin-Lfin**5/(10*(2*Rfin*Lfin)**2)+Lfin**9/(216*(2*Rfin*Lfin)**4)-Lfin**13/(9360*(2*Rfin*Lfin)**6)
+				YFfin=Lfin**3/(3*(2*Rfin*Lfin))-Lfin**7/(42*(2*Rfin*Lfin)**3)+Lfin**11/(1320*(2*Rfin*Lfin)**5)-Lfin**15/(75600*(2*Rfin*Lfin)**7)
+				rem calculos parciales (Incrementos y Alfa)
+				iX=abs(XFfin-XFini)
+				iY=abs(YFfin-YFini)
+				Alfa=200/pi*atan(iX/iY)
+
+				rem calculo de Azimut y Distancia
+				DST=sqr(iX**2+iY**2)
+				if (Rini<0) or (B.Radio<0)
+					AZI=AziIni-abs(100-Alfa-TaoIni)
+				else
+					AZI=AziIni+abs(100-Alfa-TaoIni)
+				endif
+				rem calculo de coordenadas fin
+				if AZI<0
+					AZI=AZI+400
+				endif
+				if AZI>400
+					AZI=AZI-400
+				endif
+				C.X=Xini+DST*sin((AZI*pi)/200)
+				C.Y=Yini+DST*cos((AZI*pi)/200)
+				C.X=val(fix$(C.X,3,15))
+				C.Y=val(fix$(C.Y,3,15))
+				
+				rem calculo de azimut fin
+				if (Rini<0) or (B.Radio<0)
+					C.Azimut=AziIni-abs(TaoFin-TaoIni)
+				else
+					C.Azimut=AziIni+abs(TaoFin-TaoIni)
+				endif
+				C.Azimut=Val(Fix$(C.Azimut,4,15))
+			
+			else
+rem calculo dentro de la recta
+				if B.Radio=0
+					C.Element$="RECTA"
+					C.X=Xini+Lfin*sin((B.Azimut*pi)/200)
+					C.Y=Yini+Lfin*cos((B.Azimut*pi)/200)
+					C.X=val(fix$(C.X,3,15))
+					C.Y=val(fix$(C.Y,3,15))
+					C.A=B.A
+					C.Radio=B.Radio
+					C.Azimut=B.Azimut
+					
+					
+				else
+rem calculo dentro del circulo
+					C.Element$="CIRCULO"
+					Alfa=(200*Lfin)/(pi*abs(B.Radio))
+					if B.Radio<0 
+						AZI=AziIni+100-Alfa
+					else
+						AZI=AziIni-100+Alfa
+					endif
+					if AZI<0
+						AZI=AZI+400
+					endif
+					if AZI>400
+						AZI=AZI-400
+					endif
+					C.X=B.Xc+abs(B.Radio)*sin((AZI*pi)/200)
+					C.Y=B.Yc+abs(B.Radio)*cos((AZI*pi)/200)
+					C.X=val(fix$(C.X,3,15))
+					C.Y=val(fix$(C.Y,3,15))
+					C.A=B.A
+					C.Radio=B.Radio
+					if C.Radio<0 
+						C.Azimut=AZI-100
+					else
+						C.Azimut=AZI+100
+					endif
+					if C.Azimut<0
+						C.Azimut=C.Azimut+400
+					endif
+					if C.Azimut>400
+						C.Azimut=C.Azimut-400
+					endif
+					C.Azimut=val(fix$(C.Azimut,4,15))
+					
+				endif
+			endif
+
+		use C
+		append
+		use C :next
+	endwh
+	busy off
+
+
+	rem Salida por pantalla
+	if D%=%p
+		Poscol%=2
+		Posfil%=1
+		use C
+		rem indicador de pagina (x/y)
+		gcls
+		gfont 5
+		gstyle 0
+		gat 220,10
+		gprint "1/2"
+		PeVisCal:("PTOS A INTERVALO CTE",8,1,count-1,"C")
+		PosCol%=1
+		do
+			M%=GET
+			IF M%>=256 and M%<=263
+				USE C
+				PControl:(M%,8,2,1,count-1)
+				PosCol%=PosCol%+1
+				rem indicador de pagina (x/y)
+				gcls
+				gstyle 0
+				gat 220,10
+				gprint gen$(PosCol%-1,2)+"/2"
+				PeVisCal:("PTOS A INTERVALO CTE",8,1,count-1,"C")	
+				PosCol%=PosCol%-1
+			ENDIF   
+	    until M%=27
+
+		use C
+		close
+		
+	elseif D%=%f
+		a$="PUNTOS A INTERVALO FIJO: "+Fplt$+"         "+datim$
+		use C
+		PExpList:("PTOS A INTERVALO CTE")
+		USE c
+		CLOSE
+	endif
+
+ENDP
+
+
+
+
+PROC PExpList:(Name$)
+LOCAL a$(50),D%,ret%,record$(255),address%,handle%
+	setpath "M:\OPL\"
+	a$="EXPORTAR "+NAME$
+	DINIT Name$
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+ 	
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"A¤adir",%a,"Reemplazar",%r
+		D%=dialog
+		if D%=%r
+			delete File$
+			ret%=IOOPEN(handle%,File$,$0121)
+		endif
+		if D%=%a
+			ret%=IOOPEN(handle%,File$,$0123)
+		endif
+	else
+		ret%=IOOPEN(handle%,File$,$0121)
+	ENDIF
+
+	a$="Exportando"
+	busy a$
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		record$="ASISTENTE TOBA"+rept$(" ",40)+datim$
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=UPPER$(Fplt$)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+
+
+	if Name$="DATOS DE ENTRADA"
+		record$="EJE EN PLANTA:  DATOS DE ENTRADA"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="     Al.      Tipo          Radio   Retranq.   AE/AS     X1/Y1       X2/Y2"      
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$="    "+rept$("=",72)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use A
+		first
+	endif	
+			
+
+	if Name$="PUNTOS SINGULARES"
+		record$="EJE EN PLANTA:  PUNTOS SINGULARES"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+        record$="  P.K.       Longitud     Coord. X      Coord. Y       Azimut       Radio       Param.     X Centro      Y Centro "        
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=rept$("=",116)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use B
+		first
+	endif	
+
+
+	if Name$="PTOS A INTERVALO CTE"
+		record$="EJE EN PLANTA: PUNTOS A INTERVALO CONSTANTE"
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=" "
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+        record$="          P.K.        Coord. X     Coord. Y      Azimut      Radio      Param."
+        ret%=IOWRITE(handle%,address%+1,len(record$))
+		record$=rept$(" ",9)+rept$("=",70)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+		use C
+		first
+	endif
+
+	WHILE  eof=0
+		if Name$="DATOS DE ENTRADA"
+			use A
+			record$="     "+gen$(A.Al%,15)+rept$(" ",6-len(gen$(A.Al%,15)))
+			record$=record$+A.Tipo$+rept$(" ",16-len(A.Tipo$))
+			record$=record$+gen$(A.Radio,15)+rept$(" ",20-len(gen$(A.Radio,15)))
+			record$=record$+gen$(A.AE,15)+rept$(" ",10-len(gen$(A.AE,15)))
+			record$=record$+gen$(A.X1,15)+rept$(" ",12-len(gen$(A.X1,15)))
+			record$=record$+gen$(A.X2,15)
+			ret%=IOWRITE(handle%,address%+1,len(record$))
+			record$=rept$(" ",47)
+			record$=record$+gen$(A.AS,15)+rept$(" ",10-len(gen$(A.AS,15)))
+			record$=record$+gen$(A.Y1,15)+rept$(" ",12-len(gen$(A.Y1,15)))
+			record$=record$+gen$(A.Y1,15)
+			next
+		endif
+
+
+		if Name$="PUNTOS SINGULARES"
+			use B
+			record$=gen$(B.PK,15)+rept$(" ",13-len(gen$(B.PK,15)))
+			record$=record$+gen$(B.Long,15)+rept$(" ",13-len(gen$(B.Long,15)))
+			record$=record$+gen$(B.X,15)+rept$(" ",14-len(gen$(B.X,15)))
+			record$=record$+gen$(B.Y,15)+rept$(" ",15-len(gen$(B.Y,15)))
+			record$=record$+gen$(B.Azimut,15)+rept$(" ",14-len(gen$(B.Azimut,15)))
+			record$=record$+gen$(B.Radio,15)+rept$(" ",12-len(gen$(B.Radio,15)))
+			record$=record$+gen$(B.A,15)+rept$(" ",10-len(gen$(B.A,15)))
+			record$=record$+gen$(B.Xc,15)+rept$(" ",14-len(gen$(B.Xc,15)))
+			record$=record$+gen$(B.Yc,15)+rept$(" ",14-len(gen$(B.Yc,15)))
+			next
+		endif
+
+
+		if Name$="PTOS A INTERVALO CTE"
+			use C
+			record$=rept$(" ",9)+gen$(C.PK,15)+rept$(" ",12-len(gen$(C.PK,15)))
+			record$=record$+gen$(C.X,15)+rept$(" ",13-len(gen$(C.X,13)))
+			record$=record$+gen$(C.Y,15)+rept$(" ",14-len(gen$(C.Y,16)))
+			record$=record$+gen$(C.Azimut,15)+rept$(" ",12-len(gen$(C.Azimut,12)))
+			record$=record$+gen$(C.Radio,15)+rept$(" ",12-len(gen$(C.Radio,11)))
+			record$=record$+gen$(C.A,15)+rept$(" ",10-len(gen$(C.A,11)))
+			next
+		endif
+
+		ADDRESS%=ADDR(record$)
+		PEEKB(ADDRESS%)
+		ret%=IOWRITE(handle%,address%+1,len(record$))
+	ENDWH
+
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+	record$=" "
+	ret%=IOWRITE(handle%,address%+1,len(record$))
+
+	ret%=IOCLOSE(handle%)
+	busy off
+	a$=lower$(Name$)+" exportados"
+	giprint a$,3
+	return
+ENDP
+
+
+
+PROC PControl:(M%,fpp%,nc%,FilIni%,FilFin%) 	rem fpp: filas por pantalla
+											rem nc: numero de columnas
+	IF M%=258 rem Derecha
+		PosCol%=PosCol%+1
+	ENDIF
+				
+	IF M%=259 rem Izquierda
+		PosCol%=PosCol%-1
+	ENDIF
+			
+	IF M%=257  rem Abajo
+		PosFil%=PosFil%+1
+	ENDIF
+		
+	IF M%=256  rem Arriba
+		PosFil%=PosFil%-1
+	endif
+	
+	if M%=261 rem Psion+Abajo
+		PosFil%=PosFil%+fpp%
+	endif
+
+	if M%=260	rem Psion+Arriba
+		PosFil%=PosFil%-fpp%
+	endif			
+				
+
+	if M%=263	rem Psion+Drcha
+		PosCol%=nc%
+	endif
+	
+	if M%=262	rem Psion+Izqu
+		PosCol%=1
+	endif
+
+
+	rem Control de limites
+	IF PosCol%>nc%
+		PosCol%=nc%
+	ENDIF
+	IF PosCol%<1
+		PosCol%=1
+	ENDIF
+	if (FilFin%-FilIni%+1)>=fpp%
+		if PosFil%>(FilFin%-FilIni%-fpp%+2)
+			PosFil%=(FilFin%-FilIni%-fpp%+2)
+		endif
+	else
+		if PosFil%>1
+			PosFil%=1
+		endif
+	endif
+		
+	IF PosFil%<1
+		PosFil%=1
+	ENDIF
+ENDP
+
+PROC PExport:
+local D% rem,ret%,Handle%,Record$(255),Address%
+
+	setpath "\TOBA\COM\PLANTA\"
+	DINIT "EXPORTAR PLANTA CALCULADA"
+	dFILE File$,"File",1
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+	IF EXIST(File$)
+		dINIT File$
+		dtext "","­ Fichero Existente !",2
+		dbuttons "Cancelar",27,"Reemplazar",13
+		D%=dialog
+		if D%=13
+			DELETE(File$)
+		else
+			return
+		endif
+	ENDIF
+	
+	busy "Exportando Planta.."
+	lopen File$
+	lprint "*PLT"
+	use B
+	first
+	while eof=0
+		lprint B.PK;" , ";B.X;" , ";B.Y;" , ";B.Azimut;" , ";B.Radio;" , ";B.A
+		next
+	endwh
+	lclose 
+		busy off
+	giprint "Planta Exportada",3
+
+ENDP
+
+PROC Pimport:
+LOCAL ret%,record$(255),address%,handle%
+LOCAL i%,Column%,m$(1),mm$(15),Field$(6,15)
+local PKant,Azimut,D%
+
+	setpath "\TOBA\COM\PLANTA\"
+	DINIT "IMPORTAR PLANTA CALCULADA"
+	DFILE File$,"File",0
+	D%=DIALOG
+	if D%=0
+		return
+	endif
+
+	ret%=IOOPEN(handle%,File$,$0420)
+	address%=ADDR(record$)
+
+	rem control de fichero *PLT
+	ret%=IOREAD(handle%,address%+1,255)
+	POKEB address%,ret%
+	IF record$<>"*PLT" AND Column%=0
+		dinit
+		dtext "","Fichero de planta incorrecto",0
+		dbuttons "Salir",27
+		dialog
+		return
+	endif
+
+
+	rem reinician los ficheros de planta para poder acoger 
+	rem un nuevo fichero importado.
+	close
+	close
+	delete Fple$
+	create Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2
+	delete Fplc$
+	CREATE Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+		
+
+
+
+	busy "Importando Planta..",1
+
+	rem Manejo de la cadena de carazteres Record$
+	Rem	que equivale a una linea del fichero AscII
+	WHILE 1
+		ret%=IOREAD(handle%,address%+1,255)
+		IF ret%=-36 
+			BREAK 
+		ENDIF
+		POKEB address%,ret%  
+		
+		i%=0 :Column%=0 
+		Do
+			mm$=""
+			WHILE  i%<=LEN(record$)
+				i%=i%+1 
+				m$=MID$(record$,i%,1)
+				IF m$="," 
+					BREAK 
+				ENDIF
+				if m$<>" "
+					mm$=mm$+m$
+				endif
+			ENDWH
+			Column%=Column%+1 
+			Field$(Column%)=(mm$)
+			mm$=""
+
+			i%=i%-1
+
+			WHILE MID$(record$,i%,1)=" "
+			 	i%=i%+1
+			ENDWH
+		UNTIL Column%=6
+
+		B.PK=VAL(Field$(1))
+		B.X=VAL(Field$(2))
+		B.Y=VAL(Field$(3))
+		B.Azimut=VAL(Field$(4))
+		B.Radio=VAL(Field$(5))
+		B.A=VAL(Field$(6))
+
+		rem CALCULO DE LONGITUDES
+		B.Long=B.PK-PKant
+		B.Long=val(fix$(B.Long,3,15))
+			
+		rem CALCULO DE COORDENADAS CENTRO
+		If B.Radio<>0
+			If B.Radio<0
+				Azimut=B.Azimut-100
+			else 
+				Azimut=B.Azimut+100
+			endif
+			if Azimut<0
+				Azimut=Azimut+400
+			endif
+			if Azimut>400
+				Azimut=Azimut-400
+			endif
+			B.Xc=B.X+abs(B.Radio)*sin((Azimut*pi)/200)
+			B.Yc=B.Y+abs(B.Radio)*cos((Azimut*pi)/200)
+			B.Xc=val(fix$(B.Xc,4,15))
+			B.Yc=val(fix$(B.Yc,4,15))
+		else
+			B.Xc=0
+			B.Yc=0
+		endif
+		PKant=B.PK
+		APPEND
+	ENDWH
+
+	busy off
+	ret%=IOCLOSE(handle%)
+	gcls
+	gstyle 0
+	gfont 5
+	gat 220,10
+	gprint "1/3" 
+	use B
+	PeVisCal:("EJE EN PLANTA CALCULADO",8,1,count-1,"B")
+	
+	return
+
+
+ENDP
+PROC Pfile:(M%)
+local A$(50),B$(50)
+	loadm "\TOBA\SISTEMA\FILE.OPO" 
+		
+	rem Nuevo
+	if M%=%+
+		File:("CREAR","PLANTA")
+		if File$<>""
+			Fplt$=File$
+			TRAP CLOSE
+			TRAP CLOSE 
+			Fple$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".PLE"
+			CREATE Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2           
+			Fplc$="\TOBA\DBF\PLANTA\CALC\"+File$+".PLC"
+			create Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+		endif
+	endif
+
+	rem Abrir
+	if M%=%.
+		File:("ABRIR","PLANTA") 
+		if File$<>""
+			Fplt$=File$
+			trap close
+			trap close
+			Fple$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".PLE"
+			OPEN Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2           
+			Fplc$="\TOBA\DBF\PLANTA\CALC\"+File$+".PLC"
+			open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+		endif
+	endif	
+
+	rem Copiar
+
+	if M%=%* 
+		File:("COPIAR","PLANTA")
+		if file$<>""
+			a$="\TOBA\DBF\PLANTA\ENTRADA\"+File0$+".PLE"
+			b$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".PLE"
+			if a$=Fple$
+				close
+				close
+			endif
+			copy a$,b$
+			a$="\TOBA\DBF\PLANTA\CALC\"+File0$+".PLC"
+			b$="\TOBA\DBF\PLANTA\CALC\"+File$+".PLC"
+			copy a$,b$
+			TRAP OPEN Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2           
+			trap open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+		endif
+	endif	
+
+	rem Suprimir
+	IF M%=%-
+		File:("SUPRIMIR","PLANTA")
+		If File$<>"" 
+			a$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".PLE"
+			delete a$
+			a$="\TOBA\DBF\PLANTA\CALC\"+File$+".PLC"
+			delete a$				
+		endif
+	endif
+
+	rem Renombrar
+	if M%=%/
+		File:("RENOMBRAR","PLANTA")
+		if File$<>""
+			a$="\TOBA\DBF\PLANTA\ENTRADA\"+File0$+".PLE"
+			b$="\TOBA\DBF\PLANTA\ENTRADA\"+File$+".PLE"
+			if a$=Fple$
+				close
+				close
+			endif
+			rename a$,b$
+			if a$=Fple$
+				Fplt$=File$
+				Fple$=b$
+			endif
+			a$="\TOBA\DBF\PLANTA\CALC\"+File0$+".PLC"
+			b$="\TOBA\DBF\PLANTA\CALC\"+File$+".PLC"
+			RENAME a$,b$
+			if a$=Fplc$
+				Fplc$=b$
+			endif
+			TRAP OPEN Fple$,A,Al%,Tipo$,Radio,AE,AS,X1,Y1,X2,Y2           
+			trap open Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+		endif
+	endif
+
+	unloadm "\TOBA\SISTEMA\FILE.OPO"
+
+ENDP
+
+PROC PmodEnt:
+local AL&,Al%,D%,i%
+local Radio,Ae,As,X1,Y1,X2,Y2
+
+	Al&=count
+	dINITs 
+	dposition 1,1
+	dlong Al&,"MODIFICAR Al.N§:",1,count+1
+	D%=dialog
+	if D%=0
+		return
+	endif
+	Al%=Al&
+
+	if Al%>1
+		position Al%-1
+		X1=A.X2
+		Y1=A.Y2
+	else
+		position Al%
+		X1=A.X1
+		Y1=A.Y1
+	endif
+	
+	position Al%
+	Radio=A.RAdio
+	Ae=A.Ae
+	As=A.As
+	X2=A.X2
+	Y2=A.Y2
+	dinit "ALINEACION "+gen$(Al%,15)
+	if Al%=1
+		dfloat PKiniPLT,"PKini:",0,999999
+	endif
+	if Al%=1
+		dfloat X1,"X1:",0,999999
+		dfloat Y1,"Y1:",0,9999999
+	else
+		dtext "X1:",gen$(X1,15)
+		dtext "Y1:",gen$(Y1,15)
+	endif
+	dfloat X2,"X2:",0,999999
+	dfloat Y2,"Y2:",0,9999999
+	D%=dialog
+	if D%=0
+		return
+	endif
+	dinit "ALINEACION "+gen$(Al%,15)
+	dfloat Ae,"Ae:",0,9999
+	dfloat As,"As:",0,9999
+	dfloat Radio,"Radio:",-99999,99999
+	D%=dialog
+	if D%=0
+		return
+	endif
+	A.Al%=Al%
+	A.Radio=Radio
+	A.Ae=Ae
+	A.As=As
+	A.X1=X1
+	A.Y1=Y1
+	A.X2=X2
+	A.Y2=Y2
+	if pos>count
+		append
+	else
+    	i%=0
+    	while i%<=count-Al%
+    		i%=i%+1
+    		update
+    		position Al%
+    	endwh
+	endif	
+	position Al%+1
+	if (A.X1<>X2 or A.Y1<>Y2) and pos<count
+		A.X1=X2
+		A.Y1=Y2
+    	i%=0
+    	while i%<=count-Al%+1
+    		i%=i%+1
+    		update
+    		position Al%+1
+    	endwh
+	endif		
+	
+
+
+ENDP
+
+PROC PcalcEnt:
+local AZI,AZIe,AZIs
+local Le,TaoE,XfE,YfE,SlE,SigmaE,X0E,irE
+local Ls,TaoS,XfS,YfS,SlS,SigmaS,X0S,irS
+LOCAL V,d,te,ts,tte,tts
+local PK,Azimut,X,Y
+local i%
+
+	busy "Calculando . . ."
+	rem	reinicializo el fichero de datos de calculo
+	use B
+	close 
+	delete Fplc$
+	create Fplc$,B,PK,Long,X,Y,Azimut,Radio,A,Xc,Yc
+	
+	use A
+	first
+	rem Calculo del primer punto del trazado	
+
+    i%=0
+	use A
+	while i%<count-1
+	    i%=i%+1
+
+		rem CALCULO DE LOS AZIMUTES
+
+		rem Entrada
+		IF A.Y1-A.Y2=0
+			IF A.X2<A.X1 
+				AZI=100
+			ELSE 
+				AZI=300
+			ENDIF
+		ELSE 
+			AZI=ATAN((A.X1-A.X2)/(A.Y1-A.Y2))
+		ENDIF
+
+		IF A.Y1<A.Y2
+			AZI=AZI+PI
+		ENDIF
+		IF AZI<0 
+			AZI=AZI+2*PI
+		ENDIF
+		IF AZI>(2*PI)
+			AZI=AZI-2*PI
+		ENDIF
+		AZIe=(AZI*200)/PI
+		AZIe=val(fix$(AZIe,4,15))
+	
+		rem Salida
+		use A
+		next	
+		IF A.Y2-A.Y1=0
+			IF A.X1<A.X2 
+				AZI=100
+			ELSE             
+				AZI=300
+			ENDIF
+		ELSE 
+			AZI=ATAN((A.X2-A.X1)/(A.Y2-A.Y1))
+		ENDIF
+	
+		IF A.Y2<A.Y1
+			AZI=AZI+PI
+		ENDIF
+		IF AZI<0 
+			AZI=AZI+2*PI
+		ENDIF
+		IF AZI>(2*PI)
+			AZI=AZI-2*PI
+		ENDIF
+		AZIs=(AZI*200)/PI
+		AZIs=val(fix$(AZIs,4,15))
+		use A
+		back
+	
+	
+		rem CALCULO DE LAS CLOTOIDES.
+	
+		rem Entrada
+		If A.Ae<>0
+			Le=A.Ae**2/abs(A.Radio)
+			TaoE=200*(Le/(2*abs(A.Radio)))/PI
+			XfE=Le-Le**5/(10*(2*ABS(A.Radio)*Le)**2) + Le**9/(216*(2*ABS(A.Radio)*Le)**4) - Le**13/(9360*(2*abs(A.Radio)*Le)**6)
+			YfE=Le**3/(3*(2*ABS(A.Radio)*Le))-Le**7/(42*(2*ABS(A.Radio)*Le)**3)+Le**11/(1320*(2*ABS(A.Radio)*Le)**5)-Le**15/(75600*(2*abs(A.Radio)*Le)**7)
+			SlE=sqr(XfE**2+YfE**2)
+			SigmaE=atAn(YfE/XfE)*200/pi
+			X0E=XfE-sin(TaoE*pi/200)*abs(A.Radio)
+			irE=YfE+cos(TaoE*pi/200)*abs(A.Radio)-abs(A.Radio)
+		else
+			Le=0
+			TaoE=0
+			XfE=0
+			YfE=0
+			SlE=0
+			SigmaE=0
+			X0E=0
+			irE=0
+		endif
+		
+REM
+		rem Salida
+		If A.As<>0
+			Ls=A.As**2/abs(A.Radio)
+			TaoS=200*(Ls/(2*abs(A.Radio)))/PI
+			XfS=Ls-Ls**5/(10*(2*ABS(A.Radio)*Ls)**2) + Ls**9/(216*(2*ABS(A.Radio)*Ls)**4) - Ls**13/(9360*(2*abs(A.Radio)*Ls)**6)
+			YfS=Ls**3/(3*(2*ABS(A.Radio)*Ls))-Ls**7/(42*(2*ABS(A.Radio)*Ls)**3)+Ls**11/(1320*(2*ABS(A.Radio)*Ls)**5)-Ls**15/(75600*(2*abs(A.Radio)*Ls)**7)
+			SlS=sqr(XfS**2+YfS**2)
+			SigmaS=atan(YfS/XfS)*200/pi
+			X0S=XfS-sin(TaoS*pi/200)*abs(A.Radio)
+			irS=YfS+cos(TaoS*pi/200)*abs(A.Radio)-abs(A.Radio)
+		else
+			Ls=0
+			TaoS=0
+			XfS=0
+			YfS=0
+			SlS=0
+			SigmaS=0
+			X0S=0
+			irS=0
+		endif
+		
+
+
+rem
+
+
+
+
+
+
+		rem CALCULO DE LAS TT. TANGENTE TOTALES
+		V=AZIs-AZIe
+		if V<0
+			V=V+400
+		endif
+		if V>200
+			V=400-V
+		endif
+		d=abs(irS-irE)/sin(V*pi/200)
+		te=(abs(A.Radio)+irE)/TAN(V/2*pi/200)
+		ts=(abs(A.Radio)+irS)/TAN(V/2*pi/200)
+		IF irE<irS
+			ttE=X0E+te+d
+			ttS=X0S+ts-d
+		else
+			ttE=X0E+te-d
+			ttS=X0S+ts+d
+		endif
+
+
+
+rem CALCULO DE LOS PUNTOS
+		rem Punto Inicial del trazado
+		use B
+		if count=0
+			B.Long=PKiniPLT
+			B.PK=B.Long
+			PK=B.PK
+			B.X=A.X1
+			B.Y=A.Y1
+			B.Azimut=AZIe-200
+			If B.Azimut<0
+				B.Azimut=B.Azimut+400
+			endif
+			B.Azimut=val(fix$(B.Azimut,4,15))
+			B.Radio=0
+			B.A=0
+			B.Xc=0
+			B.Yc=0
+			use B
+			append
+		endif
+			
+
+
+
+		rem CALCULO DE TE Primera Alineacion (A)
+		B.Long=sqr((A.X2-B.X)**2+(A.Y2-B.Y)**2)-ttE
+		B.Long=val(fix$(B.Long,3,15))
+		B.PK=PK+B.Long
+		PK=B.PK
+		B.X=A.X2+ttE*sin((AZIe*pi)/200)
+		B.Y=A.Y2+ttE*cos((AZIe*pi)/200)
+		B.X=val(fix$(B.X,3,15))
+		B.Y=val(fix$(B.Y,3,15))
+		B.Azimut=AZIe-200
+		If B.Azimut<0
+			B.Azimut=B.Azimut+400
+		endif
+		B.Xc=0
+		B.Yc=0
+		B.Radio=0
+		B.A=0
+		use B
+		append
+		
+		rem CALCULO DE TS Primera Alineacion (B)
+		if A.Ae<>0
+			B.Long=Le
+			B.Long=val(fix$(B.Long,3,15))
+			B.PK=PK+B.Long
+			PK=B.PK
+			AZI=AZIe-200                          
+			if AZI<0
+				AZI=AZI+400
+			endif
+			if A.Radio<0
+				B.X=B.X+SlE*sin((AZI-SigmaE)*pi/200)
+				B.Y=B.Y+SlE*cos((AZI-SigmaE)*pi/200)
+				B.Azimut=AZI-TaoE
+			else
+				B.X=B.X+SlE*sin((AZI+SigmaE)*pi/200)
+				B.Y=B.Y+SlE*cos((AZI+SigmaE)*pi/200)
+				B.Azimut=AZI+TaoE
+			endif
+			B.Azimut=val(fix$(B.Azimut,4,15))
+			B.X=val(fix$(B.X,3,15))
+			B.Y=val(fix$(B.Y,3,15))
+			B.Radio=A.Radio
+			B.A=A.Ae
+			If B.Radio<>0
+				If B.Radio<0
+					Azimut=B.Azimut-100
+				else 
+					Azimut=B.Azimut+100
+				endif
+				if Azimut<0
+					Azimut=Azimut+400
+				endif
+				if Azimut>400
+					Azimut=Azimut-400
+				endif
+				B.Xc=B.X+abs(B.Radio)*sin((Azimut*pi)/200)
+				B.Yc=B.Y+abs(B.Radio)*cos((Azimut*pi)/200)
+				B.Xc=val(fix$(B.Xc,4,15))
+				B.Yc=val(fix$(B.Yc,4,15))
+				append
+			else
+				B.Xc=0
+				B.Yc=0
+				use B
+				APPEnd
+			endif
+	    ENDIF
+		
+			
+		rem CALCULO DE TS Segunda Alineacion (C)
+		AZI=AZIs-200
+		if AZI<0
+			AZI=AZI+400
+		endif
+		X=B.X
+		Y=B.Y
+		B.X=A.X2+ttS*sin((AZIs*pi)/200)
+		B.Y=A.Y2+ttS*cos((AZIs*pi)/200)
+		if A.Radio<0
+			B.X=B.X+SlS*sin((AZI+SigmaS)*pi/200)
+			B.Y=B.Y+SlS*cos((AZI+SigmaS)*pi/200)
+			B.Azimut=AZIs+TaoS
+		else
+			B.X=B.X+SlS*sin((AZI-SigmaS)*pi/200)
+			B.Y=B.Y+SlS*cos((AZI-SigmaS)*pi/200)
+			B.Azimut=AZIs-TaoS
+		endif
+		B.Azimut=val(fix$(B.Azimut,4,15))
+		B.X=val(fix$(B.X,3,15))
+		B.Y=val(fix$(B.Y,3,15))
+		B.Radio=A.Radio
+		B.A=0
+
+		rem
+		B.Long=2*asin(0.5*sqr((X-B.X)**2+(Y-B.Y)**2)/abs(A.Radio))*abs(A.Radio)
+		B.Long=val(fix$(B.Long,3,15))
+		B.PK=PK+B.Long
+		PK=B.PK
+
+		rem
+		If B.Radio<>0
+			If B.Radio<0
+				Azimut=B.Azimut-100
+			else 
+				Azimut=B.Azimut+100
+			endif
+			if Azimut<0
+				Azimut=Azimut+400
+			endif
+			if Azimut>400
+				Azimut=Azimut-400
+			endif
+			B.Xc=B.X+abs(B.Radio)*sin((Azimut*pi)/200)
+			B.Yc=B.Y+abs(B.Radio)*cos((Azimut*pi)/200)
+			B.Xc=val(fix$(B.Xc,4,15))
+			B.Yc=val(fix$(B.Yc,4,15))
+		else
+			B.Xc=0
+			B.Yc=0
+		endif
+		B.A=0
+		use B
+		append
+
+
+
+
+
+
+
+
+
+		rem CALCULO DE TE Segunda Alineacion (D)
+		IF A.As<>0
+			B.Long=Ls
+			B.Long=val(fix$(B.Long,3,15))
+			B.PK=PK+B.Long
+			PK=B.PK
+			B.X=A.X2+ttS*sin((AZIs*pi)/200)
+			B.Y=A.Y2+ttS*cos((AZIs*pi)/200)
+			B.X=val(fix$(B.X,3,15))
+			B.Y=val(fix$(B.Y,3,15))
+			B.Azimut=AZIs
+			B.Radio=0
+			B.A=A.As
+			B.Xc=0
+			B.Yc=0
+			use B
+			append
+		endif
+
+
+		rem Punto Final del trazado
+		use A
+		if pos=count-1
+			next
+			B.Long=sqr((A.X1-A.X2)**2+(A.Y1-A.Y2)**2)-ttS
+			B.Long=val(fix$(B.Long,3,15))
+			B.PK=PK+B.Long
+			B.X=A.X2
+			B.Y=A.Y2
+			B.Azimut=AZIs
+			B.Radio=0
+			B.A=0
+			B.Xc=0
+			B.Yc=0
+			use B
+			append
+		endif
+
+
+		use A
+		next
+
+	endwh
+	busy off
+	PLTmCal:
+	
+
+ENDP
+
