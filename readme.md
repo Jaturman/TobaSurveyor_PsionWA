@@ -1,7 +1,3 @@
- PDF To Markdown Converter
-Debug View
-Result View
-Actualmente la relacion entre el proyecto con el campo, se realiza mediante el siguiente proceso instrumental:
 
 # REDACCION, EJECUCION, MODIFICACION Y COMPROBACION DE UNA
 
@@ -12,6 +8,10 @@ Autor- Javier Turégano Mansilla. Ingeniero Técnico en Topografía
 Este programa fue desarrollado y presentado como Proyecto Fin de Carrera de Topografía en la
 Universidad de Extremadura, con la finalidad de aumentar las posibilidades en la utilización conjunta de
 la libreta electrónica y la estación total, en la topografía de obras.
+
+
+![](https://github.com/Jaturman/TobaSurveyor_PsionWA/blob/master/Planos/Planta%20calculada.jpg)
+![](https://github.com/Jaturman/TobaSurveyor_PsionWA/blob/master/Planos/Seccion%20c%C3%A1lculo.jpg)
 
 ### RESUMEN
 
